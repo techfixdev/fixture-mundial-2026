@@ -1,0 +1,288 @@
+---
+import Layout from '../layouts/Layout.astro';
+import teams from '../data/teams.json';
+import groups from '../data/groups.json';
+import matches from '../data/matches.json';
+
+const now = new Date();
+const TEAM_ELOS: Record<string, number> = {};
+const TEAM_DATA: Record<string, any> = {};
+for (const [key, val] of Object.entries(teams)) {
+  TEAM_ELOS[key] = (val as any).elo;
+  TEAM_DATA[key] = val;
+}
+
+function eloProb(eloA: number, eloB: number): number {
+  return 1 / (1 + Math.pow(10, (eloB - eloA) / 400));
+}
+
+function getStatus(kickoffStr: string): 'final' | 'live' | 'upcoming' {
+  const ko = new Date(kickoffStr);
+  const end = new Date(ko.getTime() + 2.5 * 60 * 60 * 1000);
+  if (now > end) return 'final';
+  if (now >= ko) return 'live';
+  return 'upcoming';
+}
+
+function toArgTime(kickoffStr: string): Date {
+  return new Date(new Date(kickoffStr).getTime() - 3 * 60 * 60 * 1000);
+}
+
+function fmtDate(d: Date): string {
+  const dd = String(d.getUTCDate()).padStart(2, '0');
+  const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const hh = String(d.getUTCHours()).padStart(2, '0');
+  const min = String(d.getUTCMinutes()).padStart(2, '0');
+  return `${dd}/${mm} ${hh}:${min}`;
+}
+
+const MONTHS = ['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV','DIC'];
+
+function fmtDateShort(d: Date): string {
+  const dd = String(d.getUTCDate()).padStart(2, '0');
+  const mm = MONTHS[d.getUTCMonth()];
+  const hh = String(d.getUTCHours()).padStart(2, '0');
+  const min = String(d.getUTCMinutes()).padStart(2, '0');
+  return `${dd}/${mm} ${hh}:${min}`;
+}
+
+const STATUS_LABELS: Record<string, string> = {
+  upcoming: 'Próximo',
+  live: 'En juego',
+  final: 'Final'
+};
+
+function groupMatches(groupTeams: string[]) {
+  return matches.filter(m => groupTeams.includes(m.home) && groupTeams.includes(m.away));
+}
+
+function pct(v: number): string {
+  return Math.round(v * 100) + '%';
+}
+---
+
+<Layout>
+  <header class="site">
+    <h1>Mundial <span class="year">2026</span></h1>
+    <p>Fixture de la fase de grupos · Resultados y predicción por Elo</p>
+    <span class="live-flag" data-active="false">
+      <span class="dot"></span>
+      Sin partidos en juego
+    </span>
+  </header>
+
+  <main class="groups">
+    {groups.map((group: any) => {
+      const gMatches = groupMatches(group.teams);
+      return (
+        <details class="group" open>
+          <summary class="group__head">
+            <h2>Grupo {group.id}</h2>
+            <span class="group__chev">&#9660;</span>
+          </summary>
+          <ul class="group__teams">
+            {group.teams.map((t: string) => (
+              <li>
+                <img
+                  class="flag-img"
+                  src={`https://flagcdn.com/w40/${TEAM_DATA[t].iso2}.png`}
+                  alt={t}
+                  loading="lazy"
+                  width="22"
+                  height="15"
+                />
+                {TEAM_DATA[t].nameEs}
+              </li>
+            ))}
+          </ul>
+
+          <details class="standings">
+            <summary class="standings__head">Tabla de posiciones</summary>
+            <div class="standings__body">
+              <p class="standings__hint">Tocá para cargar…</p>
+            </div>
+          </details>
+
+          <div class="group__matches">
+            {gMatches.map((m: any) => {
+              const homeTeam = TEAM_DATA[m.home];
+              const awayTeam = TEAM_DATA[m.away];
+              const status = getStatus(m.kickoff);
+              const argTime = toArgTime(m.kickoff);
+              const hElo = TEAM_ELOS[m.home];
+              const aElo = TEAM_ELOS[m.away];
+              const hProb = eloProb(hElo, aElo);
+              const dProb = Math.max(0, 0.28 - Math.abs(hElo - aElo) / 1000);
+              const aProb = eloProb(aElo, hElo);
+              const total = hProb + dProb + aProb;
+              const hPct = hProb / total;
+              const dPct = dProb / total;
+              const aPct = aProb / total;
+              const live = status === 'live';
+
+              return (
+                <div
+                  class={`match${status === 'upcoming' ? ' match--upcoming' : ''}${live ? ' match--live' : ''}`}
+                  data-home={m.home}
+                  data-away={m.away}
+                  data-kickoff={m.kickoff}
+                >
+                  <div class="teams">
+                    <div class="team team--home">
+                      <img
+                        class="flag-img"
+                        src={`https://flagcdn.com/w40/${homeTeam.iso2}.png`}
+                        alt={m.home}
+                        loading="lazy"
+                        width="34"
+                        height="23"
+                      />
+                      <span class="name">{homeTeam.nameEs}</span>
+                    </div>
+                    <div class="score">
+                      <span class="vs">VS</span>
+                    </div>
+                    <div class="team team--away">
+                      <img
+                        class="flag-img"
+                        src={`https://flagcdn.com/w40/${awayTeam.iso2}.png`}
+                        alt={m.away}
+                        loading="lazy"
+                        width="34"
+                        height="23"
+                      />
+                      <span class="name">{awayTeam.nameEs}</span>
+                    </div>
+                  </div>
+                  <div class="meta">
+                    <span>{fmtDateShort(argTime)}</span>
+                    <span class={`status${status === 'live' ? ' live' : status === 'final' ? ' final' : ''}`} data-state={status}>
+                      {live && <span class="live-dot"></span>}
+                      {STATUS_LABELS[status]}
+                    </span>
+                  </div>
+                  <div class="pred">
+                    <div class="pred__label">Predicción Elo</div>
+                    <div class="bar">
+                      <div class="seg--1" style={`width:${pct(hPct)}`}></div>
+                      <div class="seg--d" style={`width:${pct(dPct)}`}></div>
+                      <div class="seg--2" style={`width:${pct(aPct)}`}></div>
+                    </div>
+                    <div class="pct">
+                      <span>{pct(hPct)}</span>
+                      <span>{pct(dPct)}</span>
+                      <span>{pct(aPct)}</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </details>
+      );
+    })}
+  </main>
+
+  <div class="vs-modal" data-vs-modal hidden>
+    <div class="vs-overlay"></div>
+    <div class="vs-stage">
+      <button class="vs-x" aria-label="Cerrar">&times;</button>
+      <div class="vs-side vs-side--left">
+        <img class="vs-flag" src="" alt="" data-vs-flag-left />
+        <h3 class="vs-country" data-vs-country-left></h3>
+        <p class="vs-player" data-vs-player-left></p>
+        <div class="vs-prob"><span data-vs-prob-left></span> <small>probabilidad</small></div>
+      </div>
+      <div class="vs-badge">VS</div>
+      <div class="vs-side vs-side--right">
+        <img class="vs-flag" src="" alt="" data-vs-flag-right />
+        <h3 class="vs-country" data-vs-country-right></h3>
+        <p class="vs-player" data-vs-player-right></p>
+        <div class="vs-prob"><span data-vs-prob-right></span> <small>probabilidad</small></div>
+      </div>
+    </div>
+  </div>
+
+  <footer class="site-footer">
+    Datos de fixture: <a href="https://github.com/openfootball">openfootball</a>,{' '}
+    <a href="https://football-data.org">football-data.org</a>,{' '}
+    <a href="https://www.eloratings.net">World Football Elo</a>
+    &mdash; Sitio estático generado con Astro.
+  </footer>
+
+  <script type="application/json" id="vs-data">
+    {JSON.stringify(TEAM_DATA)}
+  </script>
+
+  <script>
+    const vsDataEl = document.getElementById('vs-data');
+    const vsData = vsDataEl ? JSON.parse(vsDataEl.textContent || '') : {};
+    const vsModal = document.querySelector('[data-vs-modal]') as HTMLElement | null;
+    const vsOverlay = vsModal?.querySelector('.vs-overlay') as HTMLElement | null;
+    const vsX = vsModal?.querySelector('.vs-x') as HTMLElement | null;
+    const vsStage = vsModal?.querySelector('.vs-stage') as HTMLElement | null;
+
+    function eloProb(eloA: number, eloB: number): number {
+      return 1 / (1 + Math.pow(10, (eloB - eloA) / 400));
+    }
+
+    function openModal(home: string, away: string) {
+      if (!vsModal) return;
+      const h = (vsData as any)[home];
+      const a = (vsData as any)[away];
+      if (!h || !a) return;
+
+      const leftFlag = vsModal.querySelector('[data-vs-flag-left]') as HTMLImageElement;
+      const rightFlag = vsModal.querySelector('[data-vs-flag-right]') as HTMLImageElement;
+      const leftCountry = vsModal.querySelector('[data-vs-country-left]') as HTMLElement;
+      const rightCountry = vsModal.querySelector('[data-vs-country-right]') as HTMLElement;
+      const leftPlayer = vsModal.querySelector('[data-vs-player-left]') as HTMLElement;
+      const rightPlayer = vsModal.querySelector('[data-vs-player-right]') as HTMLElement;
+      const leftProb = vsModal.querySelector('[data-vs-prob-left]') as HTMLElement;
+      const rightProb = vsModal.querySelector('[data-vs-prob-right]') as HTMLElement;
+
+      if (leftFlag) leftFlag.src = `https://flagcdn.com/w160/${h.iso2}.png`;
+      if (rightFlag) rightFlag.src = `https://flagcdn.com/w160/${a.iso2}.png`;
+      if (leftCountry) leftCountry.textContent = h.nameEs;
+      if (rightCountry) rightCountry.textContent = a.nameEs;
+      if (leftPlayer) leftPlayer.innerHTML = `<small>Figura</small>${h.player}`;
+      if (rightPlayer) rightPlayer.innerHTML = `<small>Figura</small>${a.player}`;
+
+      const hProb = eloProb(h.elo, a.elo);
+      const aProb = eloProb(a.elo, h.elo);
+      if (leftProb) leftProb.textContent = Math.round(hProb * 100) + '%';
+      if (rightProb) rightProb.textContent = Math.round(aProb * 100) + '%';
+
+      vsModal.hidden = false;
+      requestAnimationFrame(() => {
+        vsModal.classList.add('is-open');
+      });
+    }
+
+    function closeModal() {
+      if (!vsModal) return;
+      vsModal.classList.remove('is-open');
+      setTimeout(() => {
+        vsModal.hidden = true;
+      }, 400);
+    }
+
+    document.querySelectorAll('.match').forEach(el => {
+      el.addEventListener('click', () => {
+        const home = el.getAttribute('data-home');
+        const away = el.getAttribute('data-away');
+        if (home && away) openModal(home, away);
+      });
+    });
+
+    vsOverlay?.addEventListener('click', closeModal);
+    vsX?.addEventListener('click', closeModal);
+    vsModal?.addEventListener('click', (e) => {
+      if (e.target === vsModal) closeModal();
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && vsModal && !vsModal.hidden) closeModal();
+    });
+  </script>
+</Layout>
