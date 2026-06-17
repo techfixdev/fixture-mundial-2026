@@ -1,7 +1,28 @@
 import type { APIRoute } from 'astro';
 import { fetchMatchDetail, normalizeTeam } from '../../../lib/football-data';
+import { fetchScoreboard, findMatchByTeams } from '../../../lib/espn';
+import type { ESPNDetail } from '../../../lib/espn';
+import matchEvents from '../../../data/match-events.json';
 
 export const prerender = false;
+
+interface Goal {
+  minute: number;
+  injuryTime?: number;
+  type: string;
+  team: string;
+  scorer: string;
+  assist: string | null;
+  source: 'espn' | 'local';
+}
+
+interface Booking {
+  minute: number;
+  team: string;
+  player: string;
+  card: string;
+  source: 'espn' | 'local';
+}
 
 interface MatchDetailResponse {
   id: number;
@@ -10,20 +31,37 @@ interface MatchDetailResponse {
   homeScore: number | null;
   awayScore: number | null;
   status: string;
-  goals: {
-    minute: number;
-    injuryTime?: number;
-    type: string;
-    team: string;
-    scorer: string | null;
-    assist: string | null;
-  }[];
-  bookings: {
-    minute: number;
-    team: string;
-    player: string;
-    card: string;
-  }[];
+  goals: Goal[];
+  bookings: Booking[];
+  mvp: string | null;
+}
+
+function getLocalEvents(home: string, away: string) {
+  const key1 = `${home}|${away}`;
+  const key2 = `${away}|${home}`;
+  return (matchEvents as any)[key1] || (matchEvents as any)[key2] || null;
+}
+
+function parseClock(displayValue: string): { minute: number; injuryTime?: number } {
+  // Formats: "21'", "90'+12'", "45'+1'"
+  const match = displayValue.match(/^(\d+)'(\+(\d+)')?$/);
+  if (!match) return { minute: 0 };
+  return {
+    minute: parseInt(match[1]),
+    injuryTime: match[3] ? parseInt(match[3]) : undefined,
+  };
+}
+
+function mapGoalType(d: ESPNDetail): string {
+  if (d.ownGoal) return 'OWN_GOAL';
+  if (d.penaltyKick) return 'PENALTY';
+  return 'REGULAR';
+}
+
+function mapCardType(d: ESPNDetail): string | null {
+  if (d.redCard) return 'RED';
+  if (d.yellowCard) return 'YELLOW';
+  return null;
 }
 
 export const GET: APIRoute = async ({ params }) => {
@@ -38,34 +76,127 @@ export const GET: APIRoute = async ({ params }) => {
   try {
     const match = await fetchMatchDetail(id);
 
+    const homeKey = normalizeTeam(match.homeTeam.name) ?? match.homeTeam.name;
+    const awayKey = normalizeTeam(match.awayTeam.name) ?? match.awayTeam.name;
+
+    // Build date for ESPN lookup: "20260611"
+    const d = new Date(match.utcDate);
+    const dateStr = d.toISOString().substring(0, 10).replace(/-/g, '');
+
+    let goals: Goal[] = [];
+    let bookings: Booking[] = [];
+    let mvp: string | null = null;
+    let source: 'espn' | 'local' = 'local';
+
+    // Try ESPN API
+    try {
+      const events = await fetchScoreboard(dateStr);
+      const espnMatch = findMatchByTeams(events, homeKey, awayKey);
+      const details = espnMatch?.competitions?.[0]?.details;
+
+      if (details && details.length > 0) {
+        source = 'espn';
+        for (const d of details) {
+          const clock = parseClock(d.clock.displayValue);
+          const cardType = mapCardType(d);
+
+          if (d.scoringPlay) {
+            goals.push({
+              minute: clock.minute,
+              injuryTime: clock.injuryTime,
+              type: mapGoalType(d),
+              team: d.team.id, // ESPN team ID — we'll improve mapping later
+              scorer: d.athletesInvolved?.[0]?.displayName ?? 'Unknown',
+              assist: d.athletesInvolved?.[1]?.displayName ?? null,
+              source: 'espn',
+            });
+          } else if (cardType) {
+            bookings.push({
+              minute: clock.minute,
+              team: d.team.id,
+              player: d.athletesInvolved?.[0]?.displayName ?? 'Unknown',
+              card: cardType,
+              source: 'espn',
+            });
+          }
+        }
+
+        // MVP: player with most goals from winning team
+        if (goals.length > 0) {
+          const scorerCounts: Record<string, number> = {};
+          for (const g of goals) scorerCounts[g.scorer] = (scorerCounts[g.scorer] || 0) + 1;
+          let top = '';
+          let max = 0;
+          for (const [name, count] of Object.entries(scorerCounts)) {
+            if (count > max) { top = name; max = count; }
+          }
+          if (top) mvp = top;
+        }
+      }
+    } catch {
+      // ESPN failed — fall through to local
+    }
+
+    // Fallback: local data
+    if (source === 'local') {
+      const local = getLocalEvents(homeKey, awayKey);
+      if (local) {
+        goals = (local.goals || []).map((g: any) => ({
+          minute: g.minute,
+          injuryTime: g.injuryTime,
+          type: g.type || 'REGULAR',
+          team: g.team,
+          scorer: g.player,
+          assist: null,
+          source: 'local' as const,
+        }));
+        bookings = (local.cards || []).map((c: any) => ({
+          minute: c.minute,
+          team: c.team,
+          player: c.player,
+          card: c.card,
+          source: 'local' as const,
+        }));
+        mvp = local.mvp || null;
+      }
+    }
+
+    // Map team IDs to our keys for ESPN data
+    if (source === 'espn') {
+      const espnEvents = await fetchScoreboard(dateStr).catch(() => ({ events: [] }));
+      const espnMatch = findMatchByTeams(
+        Array.isArray(espnEvents) ? espnEvents : (espnEvents as any).events || [],
+        homeKey,
+        awayKey,
+      );
+      const competitors = espnMatch?.competitions?.[0]?.competitors;
+      if (competitors && competitors.length >= 2) {
+        const teamMap: Record<string, string> = {};
+        teamMap[competitors[0].team.id] = normalizeTeam(competitors[0].team.displayName) ?? competitors[0].team.displayName;
+        teamMap[competitors[1].team.id] = normalizeTeam(competitors[1].team.displayName) ?? competitors[1].team.displayName;
+
+        goals = goals.map((g) => ({ ...g, team: teamMap[g.team] || g.team }));
+        bookings = bookings.map((b) => ({ ...b, team: teamMap[b.team] || b.team }));
+      }
+    }
+
     const body: MatchDetailResponse = {
       id: match.id,
-      home: normalizeTeam(match.homeTeam.name) ?? match.homeTeam.name,
-      away: normalizeTeam(match.awayTeam.name) ?? match.awayTeam.name,
+      home: homeKey,
+      away: awayKey,
       homeScore: match.score.fullTime.home,
       awayScore: match.score.fullTime.away,
       status: match.status,
-      goals: (match.goals || []).map((g) => ({
-        minute: g.minute,
-        injuryTime: g.injuryTime,
-        type: g.type,
-        team: normalizeTeam(g.team?.name) ?? g.team?.name ?? '?',
-        scorer: g.scorer?.name ?? null,
-        assist: g.assist?.name ?? null,
-      })),
-      bookings: (match.bookings || []).map((b) => ({
-        minute: b.minute,
-        team: normalizeTeam(b.team?.name) ?? b.team?.name ?? '?',
-        player: b.player?.name ?? '?',
-        card: b.card,
-      })),
+      goals,
+      bookings,
+      mvp,
     };
 
     return new Response(JSON.stringify(body), {
       status: 200,
       headers: {
         'Content-Type': 'application/json',
-        'Cache-Control': 'public, max-age=120, s-maxage=120',
+        'Cache-Control': 'public, max-age=60, s-maxage=60',
       },
     });
   } catch (err: any) {

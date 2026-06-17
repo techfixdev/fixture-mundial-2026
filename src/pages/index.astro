@@ -634,23 +634,24 @@ function getEvents(home: string, away: string): any {
 
         // Render MVP
         if (mvpEl) {
-          const vsEl = document.getElementById('vs-data');
-          let teamData: Record<string, any> = {};
-          if (vsEl) {
-            try { teamData = JSON.parse(vsEl.textContent || ''); } catch (_) {}
-          }
-
-          const homeTeam = matchEl.getAttribute('data-home') || '';
-          const awayTeam = matchEl.getAttribute('data-away') || '';
-          const hScore = parseInt(matchEl.querySelector('.score--has .vs')?.textContent || '0') || 0;
-          const aScore = parseInt(matchEl.querySelector('.score--has .vs:last-child')?.textContent || '0') || 0;
-
-          const winner = getWinnerTeam(homeTeam, awayTeam, hScore, aScore);
-          if (winner && teamData[winner]) {
-            const fig = teamData[winner];
-            mvpEl.textContent = `${fig.player} (${fig.nameEs || winner})`;
+          if (d.mvp) {
+            mvpEl.textContent = d.mvp;
           } else {
-            mvpEl.textContent = 'Sin definir (empate)';
+            const vsEl = document.getElementById('vs-data');
+            let teamData: Record<string, any> = {};
+            if (vsEl) {
+              try { teamData = JSON.parse(vsEl.textContent || ''); } catch (_) {}
+            }
+            const homeTeam = matchEl.getAttribute('data-home') || '';
+            const awayTeam = matchEl.getAttribute('data-away') || '';
+            const hScore = parseInt(matchEl.querySelector('.score--has .vs')?.textContent || '0') || 0;
+            const aScore = parseInt(matchEl.querySelector('.score--has .vs:last-child')?.textContent || '0') || 0;
+            const winner = getWinnerTeam(homeTeam, awayTeam, hScore, aScore);
+            if (winner && teamData[winner]) {
+              mvpEl.textContent = `${teamData[winner].player} (${teamData[winner].nameEs || winner})`;
+            } else {
+              mvpEl.textContent = 'Sin definir (empate)';
+            }
           }
         }
       } catch (_) {
