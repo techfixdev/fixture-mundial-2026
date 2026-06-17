@@ -12,6 +12,164 @@ import '../styles/global.css';
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Antonio:wght@400;600;700&family=Noto+Sans:wght@400;600;700&display=swap" rel="stylesheet" />
+  <style is:global>
+    /* Standings table (loaded via JS) */
+    .standings-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.82rem;
+    }
+    .standings-table th {
+      text-align: left;
+      padding: 0.45rem 0.35rem;
+      font-weight: 600;
+      color: var(--muted);
+      border-bottom: 2px solid var(--line);
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+    }
+    .standings-table td {
+      padding: 0.45rem 0.35rem;
+      border-bottom: 1px solid var(--line);
+    }
+    .standings-table .standings-team {
+      font-weight: 600;
+    }
+    .standings-table tbody tr:hover {
+      background: rgba(0,0,0,0.02);
+    }
+
+    /* Score display when numbers are shown */
+    .score--has .vs {
+      font-size: 1.3rem;
+      font-weight: 700;
+      font-family: var(--font-display);
+    }
+    .score--has .vs-div {
+      margin: 0 0.25rem;
+      color: var(--muted);
+      font-size: 1rem;
+    }
+
+    /* Broadcaster badges */
+    .broadcasters {
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+      flex-wrap: wrap;
+      margin-top: 0.5rem;
+      padding-top: 0.5rem;
+      border-top: 1px solid var(--line);
+    }
+    .broadcasters__label {
+      font-size: 0.68rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-right: 0.15rem;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      padding: 0.18rem 0.5rem;
+      border-radius: 999px;
+      font-size: 0.65rem;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+      line-height: 1;
+    }
+    .badge--confirmed {
+      background: var(--ink);
+      color: #fff;
+    }
+    .badge--tentative {
+      background: var(--line);
+      color: var(--muted);
+      border: 1px dashed var(--muted);
+    }
+    .badge__note {
+      font-size: 0.55rem;
+      font-weight: 400;
+      opacity: 0.8;
+      font-style: italic;
+    }
+
+    /* Match detail panel (goals, cards, MVP) */
+    .match-detail {
+      margin-top: 0.6rem;
+      padding: 0.75rem 0.9rem;
+      background: var(--bg);
+      border-radius: var(--radius);
+      border: 1px solid var(--line);
+      font-size: 0.78rem;
+      display: none;
+    }
+    .match-detail.is-open {
+      display: block;
+    }
+    .match-detail__title {
+      margin: 0 0 0.35rem;
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--muted);
+      font-weight: 700;
+    }
+    .match-detail__list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.2rem;
+      margin-bottom: 0.6rem;
+    }
+    .match-detail__row {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.15rem 0;
+    }
+    .match-detail__minute {
+      min-width: 2rem;
+      font-weight: 700;
+      font-family: var(--font-display);
+      font-size: 0.8rem;
+      color: var(--ink);
+    }
+    .match-detail__icon {
+      font-size: 0.85rem;
+    }
+    .match-detail__player {
+      font-weight: 600;
+    }
+    .match-detail__assist {
+      color: var(--muted);
+      font-size: 0.7rem;
+    }
+    .match-detail__cards .match-detail__row {
+      padding: 0.2rem 0;
+    }
+    .match-detail__mvp {
+      margin-top: 0.4rem;
+    }
+    .match-detail__mvp-player {
+      margin: 0;
+      font-weight: 600;
+      font-size: 0.82rem;
+    }
+    .match-detail__score-header {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 0.6rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid var(--line);
+      font-family: var(--font-display);
+      font-size: 1rem;
+      font-weight: 700;
+    }
+  </style>
 </head>
 <body>
   <slot />

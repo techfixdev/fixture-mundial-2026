@@ -3,6 +3,7 @@ import Layout from '../layouts/Layout.astro';
 import teams from '../data/teams.json';
 import groups from '../data/groups.json';
 import matches from '../data/matches.json';
+import { broadcastersFor } from '../lib/broadcasters';
 
 const now = new Date();
 const TEAM_ELOS: Record<string, number> = {};
@@ -96,7 +97,7 @@ function pct(v: number): string {
             ))}
           </ul>
 
-          <details class="standings">
+          <details class="standings" data-group={group.id}>
             <summary class="standings__head">Tabla de posiciones</summary>
             <div class="standings__body">
               <p class="standings__hint">Tocá para cargar…</p>
@@ -174,6 +175,28 @@ function pct(v: number): string {
                       <span>{pct(aPct)}</span>
                     </div>
                   </div>
+                  {
+                    (() => {
+                      const bcs = broadcastersFor(m.home, m.away);
+                      if (!bcs.length) return null;
+                      const confirmed = bcs.filter(b => b.confirmed);
+                      const tentative = bcs.filter(b => !b.confirmed);
+                      return (
+                        <div class="broadcasters">
+                          <span class="broadcasters__label">TV:</span>
+                          {confirmed.map(b => (
+                            <span class="badge badge--confirmed" title={b.name}>{b.shortName}</span>
+                          ))}
+                          {tentative.map(b => (
+                            <span class="badge badge--tentative" title={`${b.name} (a confirmar)`}>
+                              {b.shortName}
+                              <span class="badge__note">a confirmar</span>
+                            </span>
+                          ))}
+                        </div>
+                      );
+                    })()
+                  }
                 </div>
               );
             })}
@@ -203,11 +226,28 @@ function pct(v: number): string {
     </div>
   </div>
 
+  <template id="match-detail-tpl">
+    <div class="match-detail">
+      <div class="match-detail__goals">
+        <h4 class="match-detail__title">⚽ Goles</h4>
+        <div class="match-detail__list" data-detail-goals></div>
+      </div>
+      <div class="match-detail__cards">
+        <h4 class="match-detail__title">🟨🟥 Tarjetas</h4>
+        <div class="match-detail__list" data-detail-cards></div>
+      </div>
+      <div class="match-detail__mvp">
+        <h4 class="match-detail__title">⭐ MVP</h4>
+        <p class="match-detail__mvp-player" data-detail-mvp></p>
+      </div>
+    </div>
+  </template>
+
   <footer class="site-footer">
     Datos de fixture: <a href="https://github.com/openfootball">openfootball</a>,{' '}
     <a href="https://football-data.org">football-data.org</a>,{' '}
     <a href="https://www.eloratings.net">World Football Elo</a>
-    &mdash; Sitio estático generado con Astro.
+    &mdash; Datos en vivo vía football-data.org.
   </footer>
 
   <script type="application/json" id="vs-data">
@@ -283,6 +323,302 @@ function pct(v: number): string {
 
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape' && vsModal && !vsModal.hidden) closeModal();
+    });
+  </script>
+
+  <script>
+    // ---- Live polling & standings lazy-load ----
+    const LIVE_POLL_MS = 60_000;
+    const UPCOMING_WINDOW_H = 36;
+
+    const liveFlag = document.querySelector('.live-flag') as HTMLElement | null;
+
+    function updateLiveFlag(liveCount: number) {
+      if (!liveFlag) return;
+      const dot = liveFlag.querySelector('.dot');
+      if (liveCount > 0) {
+        liveFlag.setAttribute('data-active', 'true');
+        const word = liveCount === 1 ? 'partido' : 'partidos';
+        liveFlag.innerHTML = `<span class="dot"></span> ${liveCount} ${word} en juego`;
+        if (dot) dot.classList.add('live');
+      } else {
+        liveFlag.setAttribute('data-active', 'false');
+        liveFlag.innerHTML = '<span class="dot"></span> Sin partidos en juego';
+      }
+    }
+
+    function findMatchEl(home: string, away: string): HTMLElement | null {
+      const all = document.querySelectorAll('.match');
+      for (const el of all) {
+        if (el.getAttribute('data-home') === home && el.getAttribute('data-away') === away) {
+          return el as HTMLElement;
+        }
+      }
+      return null;
+    }
+
+    function updateMatchScore(matchId: number, home: string, away: string, hScore: number | null, aScore: number | null, status: string) {
+      const matchEl = findMatchEl(home, away);
+      if (!matchEl) return;
+
+      // Store match ID for detail lookup
+      matchEl.setAttribute('data-match-id', String(matchId));
+
+      // Update score display
+      const scoreEl = matchEl.querySelector('.score') as HTMLElement | null;
+      if (scoreEl && hScore !== null && aScore !== null) {
+        scoreEl.innerHTML = `<span class="vs">${hScore}</span> <span class="vs-div">-</span> <span class="vs">${aScore}</span>`;
+        scoreEl.classList.add('score--has');
+      }
+
+      // Update status badge
+      const statusEl = matchEl.querySelector('.status') as HTMLElement | null;
+      if (statusEl) {
+        const isLive = status === 'LIVE' || status === 'IN_PLAY' || status === 'PAUSED';
+        const isFinished = status === 'FINISHED';
+
+        // Remove old state classes
+        matchEl.classList.remove('match--live', 'match--upcoming');
+
+        if (isLive) {
+          matchEl.classList.add('match--live');
+          statusEl.className = 'status live';
+          statusEl.setAttribute('data-state', 'live');
+          statusEl.innerHTML = '<span class="live-dot"></span> En juego';
+        } else if (isFinished) {
+          statusEl.className = 'status final';
+          statusEl.setAttribute('data-state', 'final');
+          statusEl.textContent = 'Final';
+          // Enable click for details
+          if (scoreEl) {
+            scoreEl.style.cursor = 'pointer';
+            scoreEl.title = 'Click para ver detalles';
+          }
+        }
+      }
+    }
+
+    async function pollLive() {
+      try {
+        const res = await fetch('/api/live');
+        if (!res.ok) return;
+        const data = await res.json();
+
+        const liveMatches = data.live || [];
+        // Update live flag
+        updateLiveFlag(liveMatches.length);
+
+        // Update finished matches (show scores)
+        const finished = data.finished || [];
+        for (const m of finished) {
+          updateMatchScore(m.id, m.home, m.away, m.homeScore, m.awayScore, m.status);
+        }
+
+        // Update live matches
+        for (const m of liveMatches) {
+          updateMatchScore(m.id, m.home, m.away, m.homeScore, m.awayScore, m.status);
+        }
+      } catch (_) {
+        // Silently ignore network errors
+      }
+    }
+
+    // ---- Standings lazy-load ----
+    const loadedStandings = new Set<string>();
+
+    async function loadStandings(groupEl: HTMLElement) {
+      const groupId = groupEl.getAttribute('data-group');
+      if (!groupId || loadedStandings.has(groupId)) return;
+
+      const body = groupEl.querySelector('.standings__body') as HTMLElement | null;
+      if (!body) return;
+
+      // Get team name translations
+      const vsEl = document.getElementById('vs-data');
+      const teamNames: Record<string, string> = {};
+      if (vsEl) {
+        try {
+          const data = JSON.parse(vsEl.textContent || '');
+          for (const [key, val] of Object.entries(data)) {
+            teamNames[key] = (val as any).nameEs || key;
+          }
+        } catch (_) {}
+      }
+
+      // Show loading
+      body.innerHTML = '<p style="text-align:center;color:var(--muted);padding:1rem;">Cargando…</p>';
+
+      try {
+        const res = await fetch('/api/standings');
+        if (!res.ok) throw new Error('API error');
+        const data = await res.json();
+        const groupData = data.groups?.[groupId];
+
+        if (!groupData || !groupData.length) {
+          body.innerHTML = '<p style="text-align:center;color:var(--muted);padding:1rem;">Sin datos todavía</p>';
+          return;
+        }
+
+        let html = '<table class="standings-table"><thead><tr><th>#</th><th>Equipo</th><th>PJ</th><th>G</th><th>E</th><th>P</th><th>GF</th><th>GC</th><th>DG</th><th>Pts</th></tr></thead><tbody>';
+
+        for (const row of groupData) {
+          const displayName = teamNames[row.team] || row.team;
+          html += `<tr>
+            <td>${row.pos}</td>
+            <td class="standings-team">${displayName}</td>
+            <td>${row.p}</td>
+            <td>${row.w}</td>
+            <td>${row.d}</td>
+            <td>${row.l}</td>
+            <td>${row.gf}</td>
+            <td>${row.ga}</td>
+            <td>${row.gd > 0 ? '+' : ''}${row.gd}</td>
+            <td><strong>${row.pts}</strong></td>
+          </tr>`;
+        }
+
+        html += '</tbody></table>';
+        body.innerHTML = html;
+        loadedStandings.add(groupId);
+      } catch (_) {
+        body.innerHTML = '<p style="text-align:center;color:var(--muted);padding:1rem;">Error al cargar. Reintentá.</p>';
+      }
+    }
+
+    // Listen for standings toggle
+    document.querySelectorAll('.standings').forEach(el => {
+      el.addEventListener('toggle', () => {
+        if ((el as HTMLDetailsElement).open) {
+          loadStandings(el as HTMLElement);
+        }
+      });
+    });
+
+    // If any standings are already open (e.g., auto-open from SSR), load immediately
+    document.querySelectorAll('.standings[open]').forEach(el => {
+      loadStandings(el as HTMLElement);
+    });
+
+    // Initial poll + set interval
+    pollLive();
+    setInterval(pollLive, LIVE_POLL_MS);
+
+    // ---- Match detail panel (goals, cards, MVP) ----
+    const detailTpl = document.getElementById('match-detail-tpl') as HTMLTemplateElement | null;
+
+    function getWinnerTeam(home: string, away: string, hScore: number | null, aScore: number | null): string | null {
+      if (hScore === null || aScore === null) return null;
+      if (hScore > aScore) return home;
+      if (aScore > hScore) return away;
+      return null; // draw
+    }
+
+    async function toggleMatchDetail(matchEl: HTMLElement) {
+      const matchId = matchEl.getAttribute('data-match-id');
+      if (!matchId) return;
+
+      // Check if detail already rendered
+      let detailEl = matchEl.querySelector('.match-detail') as HTMLElement | null;
+
+      if (detailEl) {
+        // Toggle
+        detailEl.classList.toggle('is-open');
+        return;
+      }
+
+      // Create detail panel from template
+      if (!detailTpl) return;
+      const clone = detailTpl.content.cloneNode(true) as DocumentFragment;
+      detailEl = (clone.firstElementChild || clone.querySelector('.match-detail')) as HTMLElement | null;
+      if (!detailEl) return;
+
+      // Show loading
+      const goalsList = detailEl.querySelector('[data-detail-goals]') as HTMLElement;
+      const cardsList = detailEl.querySelector('[data-detail-cards]') as HTMLElement;
+      const mvpEl = detailEl.querySelector('[data-detail-mvp]') as HTMLElement;
+      if (goalsList) goalsList.innerHTML = '<span style="color:var(--muted)">Cargando…</span>';
+      if (cardsList) cardsList.innerHTML = '';
+      if (mvpEl) mvpEl.textContent = '';
+
+      detailEl.classList.add('is-open');
+      matchEl.appendChild(detailEl);
+
+      try {
+        const res = await fetch(`/api/match/${matchId}`);
+        if (!res.ok) throw new Error('API error');
+        const d = await res.json();
+
+        // Render goals
+        if (goalsList) {
+          if (d.goals && d.goals.length > 0) {
+            goalsList.innerHTML = d.goals.map((g: any) => {
+              const icon = g.type === 'PENALTY' ? '🥅' : g.type === 'OWN_GOAL' ? '💀' : '⚽';
+              const scorer = g.scorer || 'Desconocido';
+              const assist = g.assist ? ` <span class="match-detail__assist">(asist. ${g.assist})</span>` : '';
+              const min = g.injuryTime ? `${g.minute}+${g.injuryTime}'` : `${g.minute}'`;
+              return `<div class="match-detail__row">
+                <span class="match-detail__minute">${min}</span>
+                <span class="match-detail__icon">${icon}</span>
+                <span class="match-detail__player">${scorer}</span>${assist}
+              </div>`;
+            }).join('');
+          } else {
+            goalsList.innerHTML = '<span style="color:var(--muted)">Sin datos de goles</span>';
+          }
+        }
+
+        // Render cards
+        if (cardsList) {
+          if (d.bookings && d.bookings.length > 0) {
+            cardsList.innerHTML = d.bookings.map((b: any) => {
+              const icon = b.card === 'RED' ? '🟥' : '🟨';
+              return `<div class="match-detail__row">
+                <span class="match-detail__minute">${b.minute}'</span>
+                <span class="match-detail__icon">${icon}</span>
+                <span class="match-detail__player">${b.player}</span>
+              </div>`;
+            }).join('');
+          } else {
+            cardsList.innerHTML = '<span style="color:var(--muted)">Sin tarjetas</span>';
+          }
+        }
+
+        // Render MVP
+        if (mvpEl) {
+          const vsEl = document.getElementById('vs-data');
+          let teamData: Record<string, any> = {};
+          if (vsEl) {
+            try { teamData = JSON.parse(vsEl.textContent || ''); } catch (_) {}
+          }
+
+          const homeTeam = matchEl.getAttribute('data-home') || '';
+          const awayTeam = matchEl.getAttribute('data-away') || '';
+          const hScore = parseInt(matchEl.querySelector('.score--has .vs')?.textContent || '0') || 0;
+          const aScore = parseInt(matchEl.querySelector('.score--has .vs:last-child')?.textContent || '0') || 0;
+
+          const winner = getWinnerTeam(homeTeam, awayTeam, hScore, aScore);
+          if (winner && teamData[winner]) {
+            const fig = teamData[winner];
+            mvpEl.textContent = `${fig.player} (${fig.nameEs || winner})`;
+          } else {
+            mvpEl.textContent = 'Sin definir (empate)';
+          }
+        }
+      } catch (_) {
+        if (goalsList) goalsList.innerHTML = '<span style="color:var(--muted)">Error al cargar</span>';
+      }
+    }
+
+    // Delegated click: toggle match details on score click
+    document.addEventListener('click', (e) => {
+      const scoreEl = (e.target as HTMLElement).closest('.score--has');
+      if (!scoreEl) return;
+      const matchEl = scoreEl.closest('.match') as HTMLElement | null;
+      if (!matchEl) return;
+      // Don't trigger if clicking the VS modal area
+      if ((e.target as HTMLElement).closest('.vs-modal')) return;
+      e.stopPropagation();
+      toggleMatchDetail(matchEl);
     });
   </script>
 </Layout>
