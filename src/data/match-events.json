@@ -1,0 +1,21 @@
+{
+  "Mexico|South Africa": {
+    "goals": [
+      { "minute": 23, "player": "Santiago Giménez", "team": "Mexico", "type": "REGULAR" },
+      { "minute": 67, "player": "Santiago Giménez", "team": "Mexico", "type": "REGULAR" }
+    ],
+    "cards": [],
+    "mvp": "Santiago Giménez"
+  },
+  "South Korea|Czech Republic": {
+    "goals": [
+      { "minute": 12, "player": "Son Heung-min", "team": "South Korea", "type": "REGULAR" },
+      { "minute": 45, "player": "Patrik Schick", "team": "Czech Republic", "type": "PENALTY" },
+      { "minute": 78, "player": "Son Heung-min", "team": "South Korea", "type": "REGULAR" }
+    ],
+    "cards": [
+      { "minute": 55, "player": "Tomáš Souček", "team": "Czech Republic", "card": "YELLOW" }
+    ],
+    "mvp": "Son Heung-min"
+  }
+}

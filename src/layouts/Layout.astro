@@ -169,6 +169,54 @@ import '../styles/global.css';
       font-size: 1rem;
       font-weight: 700;
     }
+
+    /* Server-rendered match events (from local data) */
+    .match-events {
+      margin-top: 0.6rem;
+      padding: 0.7rem 0.9rem;
+      background: var(--bg);
+      border-radius: var(--radius);
+      border: 1px solid var(--line);
+      font-size: 0.78rem;
+    }
+    .match-events__section {
+      margin-bottom: 0.5rem;
+    }
+    .match-events__section:last-child {
+      margin-bottom: 0;
+    }
+    .match-events__title {
+      margin: 0 0 0.3rem;
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--muted);
+      font-weight: 700;
+    }
+    .match-events__row {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.12rem 0;
+    }
+    .match-events__minute {
+      min-width: 2rem;
+      font-weight: 700;
+      font-family: var(--font-display);
+      font-size: 0.78rem;
+      color: var(--ink);
+    }
+    .match-events__icon {
+      font-size: 0.8rem;
+    }
+    .match-events__player {
+      font-weight: 600;
+    }
+    .match-events__mvp {
+      margin: 0;
+      font-weight: 600;
+      font-size: 0.82rem;
+    }
   </style>
 </head>
 <body>

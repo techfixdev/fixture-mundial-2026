@@ -3,6 +3,7 @@ import Layout from '../layouts/Layout.astro';
 import teams from '../data/teams.json';
 import groups from '../data/groups.json';
 import matches from '../data/matches.json';
+import matchEvents from '../data/match-events.json';
 import { broadcastersFor } from '../lib/broadcasters';
 
 const now = new Date();
@@ -59,6 +60,12 @@ function groupMatches(groupTeams: string[]) {
 
 function pct(v: number): string {
   return Math.round(v * 100) + '%';
+}
+
+function getEvents(home: string, away: string): any {
+  const key1 = `${home}|${away}`;
+  const key2 = `${away}|${home}`;
+  return (matchEvents as any)[key1] || (matchEvents as any)[key2] || null;
 }
 ---
 
@@ -193,6 +200,48 @@ function pct(v: number): string {
                               <span class="badge__note">a confirmar</span>
                             </span>
                           ))}
+                        </div>
+                      );
+                    })()
+                  }
+                  {
+                    (() => {
+                      const st = getStatus(m.kickoff);
+                      if (st !== 'final') return null;
+                      const evts = getEvents(m.home, m.away);
+                      if (!evts) return null;
+                      return (
+                        <div class="match-events">
+                          {evts.goals && evts.goals.length > 0 && (
+                            <div class="match-events__section">
+                              <h4 class="match-events__title">⚽ Goles</h4>
+                              {evts.goals.map((g: any) => (
+                                <div class="match-events__row">
+                                  <span class="match-events__minute">{g.minute}'</span>
+                                  <span class="match-events__icon">{g.type === 'PENALTY' ? '🥅' : g.type === 'OWN_GOAL' ? '💀' : '⚽'}</span>
+                                  <span class="match-events__player">{g.player}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          {evts.cards && evts.cards.length > 0 && (
+                            <div class="match-events__section">
+                              <h4 class="match-events__title">🟨🟥 Tarjetas</h4>
+                              {evts.cards.map((c: any) => (
+                                <div class="match-events__row">
+                                  <span class="match-events__minute">{c.minute}'</span>
+                                  <span class="match-events__icon">{c.card === 'RED' ? '🟥' : '🟨'}</span>
+                                  <span class="match-events__player">{c.player}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          {evts.mvp && (
+                            <div class="match-events__section">
+                              <h4 class="match-events__title">⭐ MVP</h4>
+                              <p class="match-events__mvp">{evts.mvp}</p>
+                            </div>
+                          )}
                         </div>
                       );
                     })()
