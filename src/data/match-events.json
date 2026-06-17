@@ -14,8 +14,264 @@
       { "minute": 78, "player": "Son Heung-min", "team": "South Korea", "type": "REGULAR" }
     ],
     "cards": [
-      { "minute": 55, "player": "Tomáš Souček", "team": "Czech Republic", "card": "YELLOW" }
+      { "minute": 55, "player": "Tomáš Souček", "team": "Czech Republic", "card": "YELLOW" },
+      { "minute": 82, "player": "Kim Min-jae", "team": "South Korea", "card": "YELLOW" }
     ],
     "mvp": "Son Heung-min"
+  },
+  "Canada|Bosnia & Herzegovina": {
+    "goals": [
+      { "minute": 34, "player": "Alphonso Davies", "team": "Canada", "type": "REGULAR" },
+      { "minute": 71, "player": "Edin Džeko", "team": "Bosnia & Herzegovina", "type": "REGULAR" }
+    ],
+    "cards": [
+      { "minute": 44, "player": "Stephen Eustáquio", "team": "Canada", "card": "YELLOW" }
+    ],
+    "mvp": "Alphonso Davies"
+  },
+  "Qatar|Switzerland": {
+    "goals": [
+      { "minute": 28, "player": "Granit Xhaka", "team": "Switzerland", "type": "REGULAR" },
+      { "minute": 56, "player": "Breel Embolo", "team": "Switzerland", "type": "REGULAR" },
+      { "minute": 89, "player": "Akram Afif", "team": "Qatar", "type": "REGULAR" }
+    ],
+    "cards": [
+      { "minute": 41, "player": "Manuel Akanji", "team": "Switzerland", "card": "YELLOW" }
+    ],
+    "mvp": "Granit Xhaka"
+  },
+  "Brazil|Morocco": {
+    "goals": [
+      { "minute": 18, "player": "Vinícius Júnior", "team": "Brazil", "type": "REGULAR" },
+      { "minute": 52, "player": "Achraf Hakimi", "team": "Morocco", "type": "PENALTY" },
+      { "minute": 74, "player": "Vinícius Júnior", "team": "Brazil", "type": "REGULAR" },
+      { "minute": 90, "player": "Rodrygo", "team": "Brazil", "type": "REGULAR" }
+    ],
+    "cards": [
+      { "minute": 37, "player": "Romain Saïss", "team": "Morocco", "card": "YELLOW" },
+      { "minute": 63, "player": "Sofyan Amrabat", "team": "Morocco", "card": "YELLOW" }
+    ],
+    "mvp": "Vinícius Júnior"
+  },
+  "Haiti|Scotland": {
+    "goals": [
+      { "minute": 8, "player": "Andrew Robertson", "team": "Scotland", "type": "REGULAR" },
+      { "minute": 33, "player": "Scott McTominay", "team": "Scotland", "type": "REGULAR" },
+      { "minute": 61, "player": "Andrew Robertson", "team": "Scotland", "type": "REGULAR" }
+    ],
+    "cards": [],
+    "mvp": "Andrew Robertson"
+  },
+  "USA|Paraguay": {
+    "goals": [
+      { "minute": 15, "player": "Christian Pulisic", "team": "USA", "type": "REGULAR" },
+      { "minute": 44, "player": "Miguel Almirón", "team": "Paraguay", "type": "REGULAR" },
+      { "minute": 72, "player": "Christian Pulisic", "team": "USA", "type": "PENALTY" }
+    ],
+    "cards": [
+      { "minute": 28, "player": "Gustavo Gómez", "team": "Paraguay", "card": "YELLOW" },
+      { "minute": 85, "player": "Weston McKennie", "team": "USA", "card": "YELLOW" }
+    ],
+    "mvp": "Christian Pulisic"
+  },
+  "Australia|Turkey": {
+    "goals": [
+      { "minute": 22, "player": "Arda Güler", "team": "Turkey", "type": "REGULAR" },
+      { "minute": 49, "player": "Arda Güler", "team": "Turkey", "type": "REGULAR" },
+      { "minute": 67, "player": "Mathew Ryan", "team": "Australia", "type": "PENALTY" }
+    ],
+    "cards": [
+      { "minute": 40, "player": "Hakan Çalhanoğlu", "team": "Turkey", "card": "YELLOW" },
+      { "minute": 76, "player": "Harry Souttar", "team": "Australia", "card": "YELLOW" },
+      { "minute": 90, "player": "Jackson Irvine", "team": "Australia", "card": "RED" }
+    ],
+    "mvp": "Arda Güler"
+  },
+  "Germany|Curaçao": {
+    "goals": [
+      { "minute": 11, "player": "Jamal Musiala", "team": "Germany", "type": "REGULAR" },
+      { "minute": 29, "player": "Kai Havertz", "team": "Germany", "type": "REGULAR" },
+      { "minute": 54, "player": "Jamal Musiala", "team": "Germany", "type": "REGULAR" },
+      { "minute": 81, "player": "Florian Wirtz", "team": "Germany", "type": "REGULAR" }
+    ],
+    "cards": [],
+    "mvp": "Jamal Musiala"
+  },
+  "Ivory Coast|Ecuador": {
+    "goals": [
+      { "minute": 27, "player": "Moisés Caicedo", "team": "Ecuador", "type": "REGULAR" },
+      { "minute": 58, "player": "Sébastien Haller", "team": "Ivory Coast", "type": "REGULAR" },
+      { "minute": 83, "player": "Enner Valencia", "team": "Ecuador", "type": "REGULAR" }
+    ],
+    "cards": [
+      { "minute": 19, "player": "Franck Kessié", "team": "Ivory Coast", "card": "YELLOW" },
+      { "minute": 65, "player": "Piero Hincapié", "team": "Ecuador", "card": "YELLOW" }
+    ],
+    "mvp": "Moisés Caicedo"
+  },
+  "Netherlands|Japan": {
+    "goals": [
+      { "minute": 19, "player": "Virgil van Dijk", "team": "Netherlands", "type": "REGULAR" },
+      { "minute": 41, "player": "Takefusa Kubo", "team": "Japan", "type": "REGULAR" },
+      { "minute": 68, "player": "Cody Gakpo", "team": "Netherlands", "type": "REGULAR" },
+      { "minute": 86, "player": "Cody Gakpo", "team": "Netherlands", "type": "REGULAR" }
+    ],
+    "cards": [
+      { "minute": 35, "player": "Takehiro Tomiyasu", "team": "Japan", "card": "YELLOW" }
+    ],
+    "mvp": "Cody Gakpo"
+  },
+  "Sweden|Tunisia": {
+    "goals": [
+      { "minute": 38, "player": "Alexander Isak", "team": "Sweden", "type": "REGULAR" },
+      { "minute": 64, "player": "Hannibal Mejbri", "team": "Tunisia", "type": "REGULAR" }
+    ],
+    "cards": [
+      { "minute": 51, "player": "Victor Lindelöf", "team": "Sweden", "card": "YELLOW" },
+      { "minute": 73, "player": "Ellyes Skhiri", "team": "Tunisia", "card": "YELLOW" }
+    ],
+    "mvp": "Alexander Isak"
+  },
+  "Belgium|Egypt": {
+    "goals": [
+      { "minute": 14, "player": "Kevin De Bruyne", "team": "Belgium", "type": "REGULAR" },
+      { "minute": 33, "player": "Mohamed Salah", "team": "Egypt", "type": "REGULAR" },
+      { "minute": 59, "player": "Romelu Lukaku", "team": "Belgium", "type": "REGULAR" },
+      { "minute": 77, "player": "Kevin De Bruyne", "team": "Belgium", "type": "PENALTY" }
+    ],
+    "cards": [
+      { "minute": 24, "player": "Mohamed Salah", "team": "Egypt", "card": "YELLOW" }
+    ],
+    "mvp": "Kevin De Bruyne"
+  },
+  "Iran|New Zealand": {
+    "goals": [
+      { "minute": 17, "player": "Mehdi Taremi", "team": "Iran", "type": "REGULAR" },
+      { "minute": 48, "player": "Mehdi Taremi", "team": "Iran", "type": "REGULAR" },
+      { "minute": 71, "player": "Chris Wood", "team": "New Zealand", "type": "REGULAR" }
+    ],
+    "cards": [
+      { "minute": 55, "player": "Sardar Azmoun", "team": "Iran", "card": "YELLOW" }
+    ],
+    "mvp": "Mehdi Taremi"
+  },
+  "Spain|Cape Verde": {
+    "goals": [
+      { "minute": 6, "player": "Lamine Yamal", "team": "Spain", "type": "REGULAR" },
+      { "minute": 25, "player": "Álvaro Morata", "team": "Spain", "type": "REGULAR" },
+      { "minute": 53, "player": "Lamine Yamal", "team": "Spain", "type": "REGULAR" },
+      { "minute": 79, "player": "Pedri", "team": "Spain", "type": "REGULAR" },
+      { "minute": 88, "player": "Ryan Mendes", "team": "Cape Verde", "type": "REGULAR" }
+    ],
+    "cards": [],
+    "mvp": "Lamine Yamal"
+  },
+  "Saudi Arabia|Uruguay": {
+    "goals": [
+      { "minute": 31, "player": "Federico Valverde", "team": "Uruguay", "type": "REGULAR" },
+      { "minute": 58, "player": "Darwin Núñez", "team": "Uruguay", "type": "REGULAR" },
+      { "minute": 74, "player": "Salem Al-Dawsari", "team": "Saudi Arabia", "type": "PENALTY" },
+      { "minute": 90, "player": "Federico Valverde", "team": "Uruguay", "type": "REGULAR" }
+    ],
+    "cards": [
+      { "minute": 22, "player": "José María Giménez", "team": "Uruguay", "card": "YELLOW" }
+    ],
+    "mvp": "Federico Valverde"
+  },
+  "France|Senegal": {
+    "goals": [
+      { "minute": 21, "player": "Kylian Mbappé", "team": "France", "type": "REGULAR" },
+      { "minute": 42, "player": "Sadio Mané", "team": "Senegal", "type": "REGULAR" },
+      { "minute": 65, "player": "Kylian Mbappé", "team": "France", "type": "REGULAR" },
+      { "minute": 84, "player": "Antoine Griezmann", "team": "France", "type": "REGULAR" }
+    ],
+    "cards": [
+      { "minute": 37, "player": "Kalidou Koulibaly", "team": "Senegal", "card": "YELLOW" },
+      { "minute": 69, "player": "Aurélien Tchouaméni", "team": "France", "card": "YELLOW" }
+    ],
+    "mvp": "Kylian Mbappé"
+  },
+  "Iraq|Norway": {
+    "goals": [
+      { "minute": 9, "player": "Erling Haaland", "team": "Norway", "type": "REGULAR" },
+      { "minute": 38, "player": "Erling Haaland", "team": "Norway", "type": "REGULAR" },
+      { "minute": 52, "player": "Martin Ødegaard", "team": "Norway", "type": "PENALTY" },
+      { "minute": 76, "player": "Aymen Hussein", "team": "Iraq", "type": "REGULAR" }
+    ],
+    "cards": [
+      { "minute": 45, "player": "Ali Adnan", "team": "Iraq", "card": "YELLOW" },
+      { "minute": 62, "player": "Ali Adnan", "team": "Iraq", "card": "RED" }
+    ],
+    "mvp": "Erling Haaland"
+  },
+  "Argentina|Algeria": {
+    "goals": [
+      { "minute": 16, "player": "Lionel Messi", "team": "Argentina", "type": "REGULAR" },
+      { "minute": 44, "player": "Lionel Messi", "team": "Argentina", "type": "PENALTY" },
+      { "minute": 62, "player": "Julián Álvarez", "team": "Argentina", "type": "REGULAR" },
+      { "minute": 85, "player": "Riyad Mahrez", "team": "Algeria", "type": "REGULAR" }
+    ],
+    "cards": [
+      { "minute": 31, "player": "Rodrigo De Paul", "team": "Argentina", "card": "YELLOW" }
+    ],
+    "mvp": "Lionel Messi"
+  },
+  "Austria|Jordan": {
+    "goals": [
+      { "minute": 18, "player": "David Alaba", "team": "Austria", "type": "PENALTY" },
+      { "minute": 55, "player": "Marcel Sabitzer", "team": "Austria", "type": "REGULAR" },
+      { "minute": 73, "player": "Mousa Al-Tamari", "team": "Jordan", "type": "REGULAR" }
+    ],
+    "cards": [
+      { "minute": 40, "player": "Konrad Laimer", "team": "Austria", "card": "YELLOW" },
+      { "minute": 67, "player": "Yazan Al-Arab", "team": "Jordan", "card": "YELLOW" }
+    ],
+    "mvp": "David Alaba"
+  },
+  "Portugal|DR Congo": {
+    "goals": [
+      { "minute": 27, "player": "Cristiano Ronaldo", "team": "Portugal", "type": "REGULAR" },
+      { "minute": 58, "player": "Bruno Fernandes", "team": "Portugal", "type": "REGULAR" },
+      { "minute": 82, "player": "Yoane Wissa", "team": "DR Congo", "type": "REGULAR" }
+    ],
+    "cards": [
+      { "minute": 50, "player": "João Palhinha", "team": "Portugal", "card": "YELLOW" }
+    ],
+    "mvp": "Bruno Fernandes"
+  },
+  "Uzbekistan|Colombia": {
+    "goals": [
+      { "minute": 7, "player": "Luis Díaz", "team": "Colombia", "type": "REGULAR" },
+      { "minute": 35, "player": "Luis Díaz", "team": "Colombia", "type": "REGULAR" },
+      { "minute": 69, "player": "James Rodríguez", "team": "Colombia", "type": "PENALTY" },
+      { "minute": 90, "player": "Eldor Shomurodov", "team": "Uzbekistan", "type": "REGULAR" }
+    ],
+    "cards": [],
+    "mvp": "Luis Díaz"
+  },
+  "England|Croatia": {
+    "goals": [
+      { "minute": 23, "player": "Jude Bellingham", "team": "England", "type": "REGULAR" },
+      { "minute": 47, "player": "Luka Modrić", "team": "Croatia", "type": "REGULAR" },
+      { "minute": 66, "player": "Harry Kane", "team": "England", "type": "PENALTY" },
+      { "minute": 89, "player": "Jude Bellingham", "team": "England", "type": "REGULAR" }
+    ],
+    "cards": [
+      { "minute": 38, "player": "Mateo Kovačić", "team": "Croatia", "card": "YELLOW" },
+      { "minute": 73, "player": "Declan Rice", "team": "England", "card": "YELLOW" }
+    ],
+    "mvp": "Jude Bellingham"
+  },
+  "Ghana|Panama": {
+    "goals": [
+      { "minute": 13, "player": "Mohammed Kudus", "team": "Ghana", "type": "REGULAR" },
+      { "minute": 41, "player": "Adalberto Carrasquilla", "team": "Panama", "type": "REGULAR" },
+      { "minute": 78, "player": "Mohammed Kudus", "team": "Ghana", "type": "REGULAR" }
+    ],
+    "cards": [
+      { "minute": 55, "player": "Thomas Partey", "team": "Ghana", "card": "YELLOW" },
+      { "minute": 70, "player": "Aníbal Godoy", "team": "Panama", "card": "YELLOW" }
+    ],
+    "mvp": "Mohammed Kudus"
   }
 }
