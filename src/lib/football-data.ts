@@ -5,7 +5,7 @@
 
 const BASE = 'https://api.football-data.org/v4';
 const COMPETITION = 'WC'; // World Cup code in v4
-const CACHE_TTL = 60_000; // 60s in-memory cache
+const CACHE_TTL = 15_000; // 15s in-memory cache
 
 interface CacheEntry<T> {
   data: T;
