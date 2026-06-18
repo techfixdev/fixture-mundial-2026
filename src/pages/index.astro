@@ -73,7 +73,7 @@ function getEvents(home: string, away: string): any {
   <header class="site">
     <h1>Mundial <span class="year">2026</span></h1>
     <p>Fixture de la fase de grupos · Resultados y predicción por Elo</p>
-    <button class="live-flag" data-active="false" aria-expanded="false" id="liveToggle" type="button">
+    <button class="live-flag" data-active="false" aria-expanded="false" id="liveToggle" type="button" style="cursor:pointer;background:none;font-family:inherit;color:inherit">
       <span class="dot"></span>
       <span class="live-flag__text">Sin partidos en juego</span>
       <span class="live-flag__chev">▾</span>
@@ -506,13 +506,49 @@ function getEvents(home: string, away: string): any {
       }
     }
 
+    function getClientLiveMatches(): any[] {
+      const now = new Date();
+      const liveMatches: any[] = [];
+      const seen = new Set<string>();
+      document.querySelectorAll('.match').forEach((el) => {
+        const home = el.getAttribute('data-home');
+        const away = el.getAttribute('data-away');
+        const kickoff = el.getAttribute('data-kickoff');
+        if (!home || !away || !kickoff) return;
+        const ko = new Date(kickoff);
+        const end = new Date(ko.getTime() + 2.5 * 60 * 60 * 1000);
+        if (now >= ko && now <= end) {
+          const key = `${home}|${away}`;
+          if (!seen.has(key)) {
+            seen.add(key);
+            // Try to get scores from the DOM if already updated
+            const scoreEl = el.querySelector('.score--has .vs');
+            liveMatches.push({
+              id: 0,
+              home,
+              away,
+              homeScore: null,
+              awayScore: null,
+              status: 'LIVE',
+              kickoff: kickoff,
+            });
+          }
+        }
+      });
+      return liveMatches;
+    }
+
     async function pollLive() {
       try {
         const res = await fetch('/api/live');
         if (!res.ok) return;
         const data = await res.json();
 
-        const liveMatches = data.live || [];
+        const apiLive = data.live || [];
+        // Fallback: also check client-side for matches that are live by kickoff time
+        const clientLive = apiLive.length === 0 ? getClientLiveMatches() : [];
+        const liveMatches = apiLive.length > 0 ? apiLive : clientLive;
+
         // Update live flag + panel
         updateLiveFlag(liveMatches.length, liveMatches);
         populateLivePanel(liveMatches);
@@ -610,6 +646,12 @@ function getEvents(home: string, away: string): any {
 
     // Initial poll + set interval
     pollLive();
+    // Also do an immediate client-side check for live matches by kickoff time
+    const instantLive = getClientLiveMatches();
+    if (instantLive.length > 0) {
+      updateLiveFlag(instantLive.length, instantLive);
+      populateLivePanel(instantLive);
+    }
     setInterval(pollLive, LIVE_POLL_MS);
 
     // ---- Match detail panel (goals, cards, MVP) ----
