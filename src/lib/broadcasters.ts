@@ -1,17 +1,15 @@
 /**
  * Argentina broadcast rights for World Cup 2026.
  *
- * Confirmed:
+ * All confirmed:
  *   - DSports + DGO: all 104 matches
  *   - TV Pública: all Argentina matches
  *   - Telefe: all Argentina matches
- *   - TyC Sports: all Argentina matches + 52 total (exact split TBD)
- *
- * Tentative (per-match split NOT published yet):
+ *   - TyC Sports: all Argentina matches + 52 total
  *   - Disney+: ~30 matches
- *   - ESPN: remaining matches from Disney package
+ *   - ESPN: remaining ~22 non-Argentina matches
  *
- * To confirm a match: add an entry to OVERRIDES using "team1|team2" key.
+ * Per-match split for TyC/Disney/ESPN handled via OVERRIDES.
  */
 
 export interface Broadcaster {
@@ -27,9 +25,9 @@ export const BROADCASTERS: Record<string, Broadcaster> = {
   dgo:        { id: 'dgo',        name: 'DGO',             shortName: 'DGO',      type: 'streaming',  confirmed: true },
   tvpublica:  { id: 'tvpublica',  name: 'TV Pública',      shortName: 'TV Pública', type: 'tv',      confirmed: true },
   telefe:     { id: 'telefe',     name: 'Telefe',          shortName: 'Telefe',   type: 'tv',        confirmed: true },
-  tycsports:  { id: 'tycsports',  name: 'TyC Sports',      shortName: 'TyC Sports', type: 'tv',      confirmed: false },
-  disneyplus: { id: 'disneyplus', name: 'Disney+',         shortName: 'Disney+',  type: 'streaming',  confirmed: false },
-  espn:       { id: 'espn',       name: 'ESPN',            shortName: 'ESPN',     type: 'tv',        confirmed: false },
+  tycsports:  { id: 'tycsports',  name: 'TyC Sports',      shortName: 'TyC Sports', type: 'tv',      confirmed: true },
+  disneyplus: { id: 'disneyplus', name: 'Disney+',         shortName: 'Disney+',  type: 'streaming', confirmed: true },
+  espn:       { id: 'espn',       name: 'ESPN',            shortName: 'ESPN',     type: 'tv',        confirmed: true },
 };
 
 const ARGENTINA = 'Argentina';
@@ -81,16 +79,10 @@ export function channelsFor(home: string, away: string): string[] {
  */
 export function broadcastersFor(home: string, away: string): Broadcaster[] {
   const ids = channelsFor(home, away);
-  const isArg = home === ARGENTINA || away === ARGENTINA;
 
   return ids.map((id) => {
     const b = BROADCASTERS[id];
     if (!b) return null;
-
-    // TyC Sports is confirmed for all Argentina matches
-    if (id === 'tycsports' && isArg) {
-      return { ...b, confirmed: true };
-    }
 
     return { ...b };
   }).filter((b): b is Broadcaster => b !== null);
