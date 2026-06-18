@@ -306,18 +306,14 @@ function getEvents(home: string, away: string): any {
     &mdash; Datos en vivo vía football-data.org.
   </footer>
 
-  <script type="application/json" id="vs-data">
-    {JSON.stringify(TEAM_DATA)}
-  </script>
-  <script type="application/json" id="events-data">
-    {JSON.stringify(matchEvents)}
+  <script is:inline>
+    window.__VS_DATA__ = {JSON.stringify(TEAM_DATA)};
+    window.__EVENTS_DATA__ = {JSON.stringify(matchEvents)};
   </script>
 
   <script>
-    const vsDataEl = document.getElementById('vs-data');
-    const vsData = vsDataEl ? JSON.parse(vsDataEl.textContent || '') : {};
-    const eventsDataEl = document.getElementById('events-data');
-    const eventsData = eventsDataEl ? JSON.parse(eventsDataEl.textContent || '') : {};
+    const vsData = (window as any).__VS_DATA__ || {};
+    const eventsData = (window as any).__EVENTS_DATA__ || {};
     const vsModal = document.querySelector('[data-vs-modal]') as HTMLElement | null;
     const vsOverlay = vsModal?.querySelector('.vs-overlay') as HTMLElement | null;
     const vsX = vsModal?.querySelector('.vs-x') as HTMLElement | null;
@@ -635,15 +631,12 @@ function getEvents(home: string, away: string): any {
       if (!body) return;
 
       // Get team name translations
-      const vsEl = document.getElementById('vs-data');
+      const teamData = window.__VS_DATA__ || {};
       const teamNames = {};
-      if (vsEl) {
-        try {
-          const data = JSON.parse(vsEl.textContent || '');
-          for (const [key, val] of Object.entries(data)) {
-            teamNames[key] = val.nameEs || key;
-          }
-        } catch (_) {}
+      if (teamData) {
+        for (const [key, val] of Object.entries(teamData)) {
+          teamNames[key] = val.nameEs || key;
+        }
       }
 
       // Show loading
@@ -795,11 +788,7 @@ function getEvents(home: string, away: string): any {
           if (d.mvp) {
             mvpEl.textContent = d.mvp;
           } else {
-            const vsEl = document.getElementById('vs-data');
-            let teamData = {};
-            if (vsEl) {
-              try { teamData = JSON.parse(vsEl.textContent || ''); } catch (_) {}
-            }
+            let teamData = window.__VS_DATA__ || {};
             const homeTeam = matchEl.getAttribute('data-home') || '';
             const awayTeam = matchEl.getAttribute('data-away') || '';
             const hScore = parseInt(matchEl.querySelector('.score--has .vs')?.textContent || '0') || 0;
