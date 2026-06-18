@@ -306,10 +306,8 @@ function getEvents(home: string, away: string): any {
     &mdash; Datos en vivo vía football-data.org.
   </footer>
 
-  <script is:inline>
-    window.__VS_DATA__ = {JSON.stringify(TEAM_DATA)};
-    window.__EVENTS_DATA__ = {JSON.stringify(matchEvents)};
-  </script>
+  <script set:html={`window.__VS_DATA__ = ${JSON.stringify(TEAM_DATA)};
+window.__EVENTS_DATA__ = ${JSON.stringify(matchEvents)};`}></script>
 
   <script>
     const vsData = (window as any).__VS_DATA__ || {};
