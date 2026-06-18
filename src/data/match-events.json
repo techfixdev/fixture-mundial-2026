@@ -784,23 +784,162 @@
     "mvp": "Romano Schmid"
   },
   "Portugal|DR Congo": {
-    "goals": [],
-    "cards": [],
-    "mvp": null
+    "goals": [
+      {
+        "minute": 333,
+        "player": "João Neves",
+        "team": "Portugal",
+        "type": "REGULAR"
+      },
+      {
+        "minute": 2700,
+        "player": "Yoane Wissa",
+        "team": "DR Congo",
+        "type": "REGULAR"
+      }
+    ],
+    "cards": [
+      {
+        "minute": 729,
+        "player": "Bernardo Silva",
+        "team": "Portugal",
+        "card": "YELLOW"
+      },
+      {
+        "minute": 1899,
+        "player": "Chancel Mbemba",
+        "team": "DR Congo",
+        "card": "YELLOW"
+      },
+      {
+        "minute": 5262,
+        "player": "Nélson Semedo",
+        "team": "Portugal",
+        "card": "YELLOW"
+      },
+      {
+        "minute": 5400,
+        "player": "Tomás Araújo",
+        "team": "Portugal",
+        "card": "YELLOW"
+      }
+    ],
+    "mvp": "João Neves"
   },
   "England|Croatia": {
-    "goals": [],
+    "goals": [
+      {
+        "minute": 677,
+        "player": "Harry Kane",
+        "team": "England",
+        "type": "PENALTY"
+      },
+      {
+        "minute": 2132,
+        "player": "Martin Baturina",
+        "team": "Croatia",
+        "type": "REGULAR"
+      },
+      {
+        "minute": 2475,
+        "player": "Harry Kane",
+        "team": "England",
+        "type": "REGULAR"
+      },
+      {
+        "minute": 2700,
+        "player": "Petar Musa",
+        "team": "Croatia",
+        "type": "REGULAR"
+      },
+      {
+        "minute": 2785,
+        "player": "Jude Bellingham",
+        "team": "England",
+        "type": "REGULAR"
+      },
+      {
+        "minute": 5086,
+        "player": "Marcus Rashford",
+        "team": "England",
+        "type": "REGULAR"
+      }
+    ],
     "cards": [],
-    "mvp": null
+    "mvp": "Harry Kane"
   },
   "Ghana|Panama": {
-    "goals": [],
-    "cards": [],
-    "mvp": null
+    "goals": [
+      {
+        "minute": 5400,
+        "player": "Caleb Yirenkyi",
+        "team": "Ghana",
+        "type": "REGULAR"
+      }
+    ],
+    "cards": [
+      {
+        "minute": 928,
+        "player": "Caleb Yirenkyi",
+        "team": "Ghana",
+        "card": "YELLOW"
+      },
+      {
+        "minute": 4302,
+        "player": "César Blackman",
+        "team": "Panama",
+        "card": "YELLOW"
+      },
+      {
+        "minute": 5400,
+        "player": "Carlos Harvey",
+        "team": "Panama",
+        "card": "YELLOW"
+      }
+    ],
+    "mvp": "Caleb Yirenkyi"
   },
   "Uzbekistan|Colombia": {
-    "goals": [],
-    "cards": [],
-    "mvp": null
+    "goals": [
+      {
+        "minute": 2399,
+        "player": "Daniel Muñoz",
+        "team": "Colombia",
+        "type": "REGULAR"
+      },
+      {
+        "minute": 3583,
+        "player": "Abbosbek Fayzullaev",
+        "team": "Uzbekistan",
+        "type": "REGULAR"
+      },
+      {
+        "minute": 3893,
+        "player": "Luis Díaz",
+        "team": "Colombia",
+        "type": "REGULAR"
+      },
+      {
+        "minute": 5400,
+        "player": "Jáminton Campaz",
+        "team": "Colombia",
+        "type": "REGULAR"
+      }
+    ],
+    "cards": [
+      {
+        "minute": 410,
+        "player": "Johan Mojica",
+        "team": "Colombia",
+        "card": "YELLOW"
+      },
+      {
+        "minute": 1997,
+        "player": "Abdukodir Khusanov",
+        "team": "Uzbekistan",
+        "card": "YELLOW"
+      }
+    ],
+    "mvp": "Luis Díaz"
   }
 }
