@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@astrojs/vercel": "^10.0.8",
-    "astro": "5.18.2"
+    "astro": "6.4.8"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
