@@ -265,13 +265,18 @@ function getEvents(home: string, away: string): any {
         <img class="vs-flag" src="" alt="" data-vs-flag-left />
         <h3 class="vs-country" data-vs-country-left></h3>
         <p class="vs-player" data-vs-player-left></p>
+        <div class="vs-events" data-vs-events-left></div>
         <div class="vs-prob"><span data-vs-prob-left></span> <small>probabilidad</small></div>
       </div>
-      <div class="vs-badge">VS</div>
+      <div class="vs-center">
+        <div class="vs-score" data-vs-score></div>
+        <div class="vs-badge">VS</div>
+      </div>
       <div class="vs-side vs-side--right">
         <img class="vs-flag" src="" alt="" data-vs-flag-right />
         <h3 class="vs-country" data-vs-country-right></h3>
         <p class="vs-player" data-vs-player-right></p>
+        <div class="vs-events" data-vs-events-right></div>
         <div class="vs-prob"><span data-vs-prob-right></span> <small>probabilidad</small></div>
       </div>
     </div>
@@ -304,17 +309,27 @@ function getEvents(home: string, away: string): any {
   <script type="application/json" id="vs-data">
     {JSON.stringify(TEAM_DATA)}
   </script>
+  <script type="application/json" id="events-data">
+    {JSON.stringify(matchEvents)}
+  </script>
 
   <script>
     const vsDataEl = document.getElementById('vs-data');
     const vsData = vsDataEl ? JSON.parse(vsDataEl.textContent || '') : {};
+    const eventsDataEl = document.getElementById('events-data');
+    const eventsData = eventsDataEl ? JSON.parse(eventsDataEl.textContent || '') : {};
     const vsModal = document.querySelector('[data-vs-modal]') as HTMLElement | null;
     const vsOverlay = vsModal?.querySelector('.vs-overlay') as HTMLElement | null;
     const vsX = vsModal?.querySelector('.vs-x') as HTMLElement | null;
-    const vsStage = vsModal?.querySelector('.vs-stage') as HTMLElement | null;
 
     function eloProb(eloA: number, eloB: number): number {
       return 1 / (1 + Math.pow(10, (eloB - eloA) / 400));
+    }
+
+    function getEventsData(home: string, away: string): any {
+      const key1 = `${home}|${away}`;
+      const key2 = `${away}|${home}`;
+      return eventsData[key1] || eventsData[key2] || null;
     }
 
     function openModal(home: string, away: string) {
@@ -331,6 +346,9 @@ function getEvents(home: string, away: string): any {
       const rightPlayer = vsModal.querySelector('[data-vs-player-right]') as HTMLElement;
       const leftProb = vsModal.querySelector('[data-vs-prob-left]') as HTMLElement;
       const rightProb = vsModal.querySelector('[data-vs-prob-right]') as HTMLElement;
+      const scoreEl = vsModal.querySelector('[data-vs-score]') as HTMLElement;
+      const leftEvents = vsModal.querySelector('[data-vs-events-left]') as HTMLElement;
+      const rightEvents = vsModal.querySelector('[data-vs-events-right]') as HTMLElement;
 
       if (leftFlag) leftFlag.src = `https://flagcdn.com/w160/${h.iso2}.png`;
       if (rightFlag) rightFlag.src = `https://flagcdn.com/w160/${a.iso2}.png`;
@@ -343,6 +361,44 @@ function getEvents(home: string, away: string): any {
       const aProb = eloProb(a.elo, h.elo);
       if (leftProb) leftProb.textContent = Math.round(hProb * 100) + '%';
       if (rightProb) rightProb.textContent = Math.round(aProb * 100) + '%';
+
+      // Score: try to read from the match card DOM
+      const matchEl = document.querySelector(`.match[data-home="${home}"][data-away="${away}"]`) as HTMLElement | null;
+      if (scoreEl && matchEl) {
+        const scoreSpan = matchEl.querySelector('.score--has');
+        if (scoreSpan) {
+          scoreEl.innerHTML = scoreSpan.innerHTML.replace(/VS/g, '').replace(/vs/g, '');
+          scoreEl.classList.add('vs-score--has');
+        } else {
+          scoreEl.innerHTML = '';
+          scoreEl.classList.remove('vs-score--has');
+        }
+      }
+
+      // Events: goals and cards from local data
+      const evts = getEventsData(home, away);
+      if (leftEvents) leftEvents.innerHTML = '';
+      if (rightEvents) rightEvents.innerHTML = '';
+
+      if (evts) {
+        const evtClass = 'vs-event';
+        if (evts.goals && leftEvents && rightEvents) {
+          for (const g of evts.goals) {
+            const icon = g.type === 'PENALTY' ? '🥅' : g.type === 'OWN_GOAL' ? '💀' : '⚽';
+            const html = `<div class="${evtClass}"><span>${icon}</span> ${g.player}</div>`;
+            if (g.team === home) leftEvents.innerHTML += html;
+            else if (g.team === away) rightEvents.innerHTML += html;
+          }
+        }
+        if (evts.cards && leftEvents && rightEvents) {
+          for (const c of evts.cards) {
+            const icon = c.card === 'RED' ? '🟥' : '🟨';
+            const html = `<div class="${evtClass}"><span>${icon}</span> ${c.player}</div>`;
+            if (c.team === home) leftEvents.innerHTML += html;
+            else if (c.team === away) rightEvents.innerHTML += html;
+          }
+        }
+      }
 
       vsModal.hidden = false;
       requestAnimationFrame(() => {
