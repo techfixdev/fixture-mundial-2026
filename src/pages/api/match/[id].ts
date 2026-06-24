@@ -93,19 +93,31 @@ export const GET: APIRoute = async ({ params }) => {
       const events = await fetchScoreboard(dateStr);
       const espnMatch = findMatchByTeams(events, homeKey, awayKey);
       const details = espnMatch?.competitions?.[0]?.details;
+      const competitors = espnMatch?.competitions?.[0]?.competitors;
 
       if (details && details.length > 0) {
         source = 'espn';
+
+        // Build team ID map from the SAME scoreboard response (no second fetch)
+        const teamMap: Record<string, string> = {};
+        if (competitors && competitors.length >= 2) {
+          teamMap[competitors[0].team.id] = normalizeTeam(competitors[0].team.displayName) ?? competitors[0].team.displayName;
+          teamMap[competitors[1].team.id] = normalizeTeam(competitors[1].team.displayName) ?? competitors[1].team.displayName;
+        }
+
         for (const d of details) {
           const clock = parseClock(d.clock.displayValue);
           const cardType = mapCardType(d);
+
+          // Resolve ESPN team ID to our team key immediately
+          const resolvedTeam = teamMap[d.team.id] || d.team.id;
 
           if (d.scoringPlay) {
             goals.push({
               minute: clock.minute,
               injuryTime: clock.injuryTime,
               type: mapGoalType(d),
-              team: d.team.id, // ESPN team ID — we'll improve mapping later
+              team: resolvedTeam,
               scorer: d.athletesInvolved?.[0]?.displayName ?? 'Unknown',
               assist: d.athletesInvolved?.[1]?.displayName ?? null,
               source: 'espn',
@@ -113,7 +125,7 @@ export const GET: APIRoute = async ({ params }) => {
           } else if (cardType) {
             bookings.push({
               minute: clock.minute,
-              team: d.team.id,
+              team: resolvedTeam,
               player: d.athletesInvolved?.[0]?.displayName ?? 'Unknown',
               card: cardType,
               source: 'espn',
@@ -161,24 +173,9 @@ export const GET: APIRoute = async ({ params }) => {
       }
     }
 
-    // Map team IDs to our keys for ESPN data
-    if (source === 'espn') {
-      const espnEvents = await fetchScoreboard(dateStr).catch(() => ({ events: [] }));
-      const espnMatch = findMatchByTeams(
-        Array.isArray(espnEvents) ? espnEvents : (espnEvents as any).events || [],
-        homeKey,
-        awayKey,
-      );
-      const competitors = espnMatch?.competitions?.[0]?.competitors;
-      if (competitors && competitors.length >= 2) {
-        const teamMap: Record<string, string> = {};
-        teamMap[competitors[0].team.id] = normalizeTeam(competitors[0].team.displayName) ?? competitors[0].team.displayName;
-        teamMap[competitors[1].team.id] = normalizeTeam(competitors[1].team.displayName) ?? competitors[1].team.displayName;
-
-        goals = goals.map((g) => ({ ...g, team: teamMap[g.team] || g.team }));
-        bookings = bookings.map((b) => ({ ...b, team: teamMap[b.team] || b.team }));
-      }
-    }
+    const liveStatuses = ['LIVE', 'IN_PLAY', 'PAUSED'];
+    const isLive = liveStatuses.includes(match.status);
+    const cacheMaxAge = isLive ? 15 : 60;
 
     const body: MatchDetailResponse = {
       id: match.id,
@@ -196,7 +193,7 @@ export const GET: APIRoute = async ({ params }) => {
       status: 200,
       headers: {
         'Content-Type': 'application/json',
-        'Cache-Control': 'public, max-age=60, s-maxage=60',
+        'Cache-Control': `public, max-age=${cacheMaxAge}, s-maxage=${cacheMaxAge}`,
       },
     });
   } catch (err: any) {

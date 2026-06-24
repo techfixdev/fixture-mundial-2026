@@ -5,6 +5,7 @@ import groups from '../data/groups.json';
 import matches from '../data/matches.json';
 import matchEvents from '../data/match-events.json';
 import { broadcastersFor } from '../lib/broadcasters';
+import { fetchWorldCupMatches, normalizeTeam } from '../lib/football-data';
 
 const now = new Date();
 const TEAM_ELOS: Record<string, number> = {};
@@ -67,6 +68,43 @@ function getEvents(home: string, away: string): any {
   const key2 = `${away}|${home}`;
   return (matchEvents as any)[key1] || (matchEvents as any)[key2] || null;
 }
+
+// SSR: fetch match results from football-data.org so finished/live matches
+// render with real scores on first paint (no "VS flash").
+const SSR_SCORES_RAW: Record<string, { id: number; homeScore: number | null; awayScore: number | null; status: string }> = {};
+try {
+  const fdMatches = await fetchWorldCupMatches();
+  for (const m of fdMatches) {
+    const homeKey = normalizeTeam(m.homeTeam.name) ?? m.homeTeam.name;
+    const awayKey = normalizeTeam(m.awayTeam.name) ?? m.awayTeam.name;
+    SSR_SCORES_RAW[`${homeKey}|${awayKey}`] = {
+      id: m.id,
+      homeScore: m.score.fullTime.home,
+      awayScore: m.score.fullTime.away,
+      status: m.status,
+    };
+  }
+} catch {
+  // football-data.org unavailable — fall back to VS placeholders
+}
+
+function ssrScore(home: string, away: string): { id: number; homeScore: number | null; awayScore: number | null; status: string } | null {
+  const direct = SSR_SCORES_RAW[`${home}|${away}`];
+  if (direct) return direct;
+  const reversed = SSR_SCORES_RAW[`${away}|${home}`];
+  if (reversed) return { id: reversed.id, homeScore: reversed.awayScore, awayScore: reversed.homeScore, status: reversed.status };
+  return null;
+}
+
+// Build SSR_SCORES keyed by our matches.json order so the client can iterate
+// directly without re-mapping team directions.
+const SSR_SCORES: Record<string, any> = {};
+for (const m of matches as any[]) {
+  const s = ssrScore(m.home, m.away);
+  if (s) SSR_SCORES[`${m.home}|${m.away}`] = s;
+}
+
+const LIVE_API_STATUSES = ['LIVE', 'IN_PLAY', 'PAUSED'];
 ---
 
 <Layout>
@@ -117,7 +155,7 @@ function getEvents(home: string, away: string): any {
             {gMatches.map((m: any) => {
               const homeTeam = TEAM_DATA[m.home];
               const awayTeam = TEAM_DATA[m.away];
-              const status = getStatus(m.kickoff);
+              const koStatus = getStatus(m.kickoff);
               const argTime = toArgTime(m.kickoff);
               const hElo = TEAM_ELOS[m.home];
               const aElo = TEAM_ELOS[m.away];
@@ -128,6 +166,16 @@ function getEvents(home: string, away: string): any {
               const hPct = hProb / total;
               const dPct = dProb / total;
               const aPct = aProb / total;
+
+              // SSR score injection: prefer football-data.org status when available
+              const ssrScoreData = SSR_SCORES[`${m.home}|${m.away}`];
+              const hasSSRScore = !!(ssrScoreData && ssrScoreData.homeScore !== null && ssrScoreData.awayScore !== null);
+              const ssrStatus = ssrScoreData?.status;
+              const isSSRLive = ssrStatus && LIVE_API_STATUSES.includes(ssrStatus);
+              const isSSRFinished = ssrStatus === 'FINISHED';
+              const status: 'final' | 'live' | 'upcoming' = ssrStatus
+                ? (isSSRFinished ? 'final' : isSSRLive ? 'live' : 'upcoming')
+                : koStatus;
               const live = status === 'live';
 
               return (
@@ -136,6 +184,8 @@ function getEvents(home: string, away: string): any {
                   data-home={m.home}
                   data-away={m.away}
                   data-kickoff={m.kickoff}
+                  data-match-id={ssrScoreData?.id ? String(ssrScoreData.id) : undefined}
+                  data-ssr-status={ssrStatus ?? undefined}
                 >
                   <div class="teams">
                     <div class="team team--home">
@@ -149,8 +199,17 @@ function getEvents(home: string, away: string): any {
                       />
                       <span class="name">{homeTeam.nameEs}</span>
                     </div>
-                    <div class="score">
-                      <span class="vs">VS</span>
+                    <div class={`score${hasSSRScore ? ' score--has' : ''}${isSSRFinished ? ' score--clickable' : ''}`}>
+                      {hasSSRScore ? (
+                        <>
+                          <span class="vs">{ssrScoreData.homeScore}</span>
+                          <span class="vs-div">-</span>
+                          <span class="vs">{ssrScoreData.awayScore}</span>
+                          {live && <span class="live-dot score__live-dot"></span>}
+                        </>
+                      ) : (
+                        <span class="vs">VS</span>
+                      )}
                     </div>
                     <div class="team team--away">
                       <img
@@ -166,7 +225,7 @@ function getEvents(home: string, away: string): any {
                   </div>
                   <div class="meta">
                     <span>{fmtDateShort(argTime)}</span>
-                    <span class={`status${status === 'live' ? ' live' : status === 'final' ? ' final' : ''}`} data-state={status}>
+                    <span class={`status${live ? ' live' : status === 'final' ? ' final' : ''}`} data-state={status}>
                       {live && <span class="live-dot"></span>}
                       {STATUS_LABELS[status]}
                     </span>
@@ -307,7 +366,8 @@ function getEvents(home: string, away: string): any {
   </footer>
 
   <script set:html={`window.__VS_DATA__ = ${JSON.stringify(TEAM_DATA)};
-window.__EVENTS_DATA__ = ${JSON.stringify(matchEvents)};`}></script>
+window.__EVENTS_DATA__ = ${JSON.stringify(matchEvents)};
+window.__SSR_SCORES__ = ${JSON.stringify(SSR_SCORES)};`}></script>
 
   <script>
     const vsData = (window as any).__VS_DATA__ || {};
@@ -430,6 +490,7 @@ window.__EVENTS_DATA__ = ${JSON.stringify(matchEvents)};`}></script>
   <script is:inline>
     // ---- Live polling & standings lazy-load ----
     const LIVE_POLL_MS = 20_000;
+    const DETAIL_REFRESH_MS = 30_000;
     const UPCOMING_WINDOW_H = 36;
 
     const liveFlag = document.getElementById('liveToggle');
@@ -521,6 +582,7 @@ window.__EVENTS_DATA__ = ${JSON.stringify(matchEvents)};`}></script>
 
       // Store match ID for detail lookup
       matchEl.setAttribute('data-match-id', String(matchId));
+      if (status) matchEl.setAttribute('data-ssr-status', status);
 
       // Update score display
       const scoreEl = matchEl.querySelector('.score');
@@ -543,14 +605,142 @@ window.__EVENTS_DATA__ = ${JSON.stringify(matchEvents)};`}></script>
           statusEl.className = 'status live';
           statusEl.setAttribute('data-state', 'live');
           statusEl.innerHTML = '<span class="live-dot"></span> En juego';
+          // Make score clickable for live detail too
+          if (scoreEl) {
+            scoreEl.classList.add('score--clickable');
+            scoreEl.style.cursor = 'pointer';
+            scoreEl.title = 'Click para ver detalles';
+          }
         } else if (isFinished) {
           statusEl.className = 'status final';
           statusEl.setAttribute('data-state', 'final');
           statusEl.textContent = 'Final';
           // Enable click for details
           if (scoreEl) {
+            scoreEl.classList.add('score--clickable');
             scoreEl.style.cursor = 'pointer';
             scoreEl.title = 'Click para ver detalles';
+          }
+          // Stop auto-refreshing this match's detail panel — it's done
+          if (activeDetailMatchId === String(matchId)) {
+            clearDetailRefresh();
+          }
+        }
+      }
+    }
+
+    // ---- SSR score injection (instant first paint) ----
+    function processSSRScores() {
+      const ssrScores = window.__SSR_SCORES__ || {};
+      for (const key of Object.keys(ssrScores)) {
+        const [home, away] = key.split('|');
+        const s = ssrScores[key];
+        if (s.homeScore === null || s.awayScore === null) continue;
+        updateMatchScore(s.id, home, away, s.homeScore, s.awayScore, s.status);
+      }
+    }
+
+    // ---- Match detail panel auto-refresh (live matches only) ----
+    let detailRefreshInterval = null;
+    let activeDetailMatchId = null;
+
+    function clearDetailRefresh() {
+      if (detailRefreshInterval) {
+        clearInterval(detailRefreshInterval);
+        detailRefreshInterval = null;
+      }
+      activeDetailMatchId = null;
+    }
+
+    function setupDetailRefresh(matchEl, matchId) {
+      // Always clear any prior interval — only one detail panel auto-refreshes at a time
+      clearDetailRefresh();
+      const ssrStatus = matchEl.getAttribute('data-ssr-status');
+      const isLive = ssrStatus && (ssrStatus === 'LIVE' || ssrStatus === 'IN_PLAY' || ssrStatus === 'PAUSED')
+        || matchEl.classList.contains('match--live');
+      if (!isLive) return;
+      activeDetailMatchId = String(matchId);
+      detailRefreshInterval = setInterval(() => refreshDetailPanel(matchEl), DETAIL_REFRESH_MS);
+    }
+
+    async function refreshDetailPanel(matchEl) {
+      const matchId = matchEl.getAttribute('data-match-id');
+      if (!matchId || activeDetailMatchId !== String(matchId)) return;
+      // If the panel was closed, stop refreshing
+      const detailEl = matchEl.querySelector('.match-detail.is-open');
+      if (!detailEl) { clearDetailRefresh(); return; }
+      try {
+        const res = await fetch(`/api/match/${matchId}`);
+        if (!res.ok) return;
+        const d = await res.json();
+        const home = matchEl.getAttribute('data-home');
+        const away = matchEl.getAttribute('data-away');
+        // Sync the score + status badge on the card
+        if (d.homeScore !== null && d.awayScore !== null) {
+          updateMatchScore(d.id, home, away, d.homeScore, d.awayScore, d.status);
+        }
+        if (d.status === 'FINISHED') {
+          clearDetailRefresh();
+          return;
+        }
+        renderDetailContent(detailEl, d, matchEl);
+      } catch (_) {
+        // Ignore transient network errors — interval will retry
+      }
+    }
+
+    function renderDetailContent(detailEl, d, matchEl) {
+      const goalsList = detailEl.querySelector('[data-detail-goals]');
+      const cardsList = detailEl.querySelector('[data-detail-cards]');
+      const mvpEl = detailEl.querySelector('[data-detail-mvp]');
+
+      if (goalsList) {
+        if (d.goals && d.goals.length > 0) {
+          goalsList.innerHTML = d.goals.map((g) => {
+            const icon = g.type === 'PENALTY' ? '🥅' : g.type === 'OWN_GOAL' ? '💀' : '⚽';
+            const scorer = g.scorer || 'Desconocido';
+            const assist = g.assist ? ` <span class="match-detail__assist">(asist. ${g.assist})</span>` : '';
+            const min = g.injuryTime ? `${g.minute}+${g.injuryTime}'` : `${g.minute}'`;
+            return `<div class="match-detail__row">
+              <span class="match-detail__minute">${min}</span>
+              <span class="match-detail__icon">${icon}</span>
+              <span class="match-detail__player">${scorer}</span>${assist}
+            </div>`;
+          }).join('');
+        } else {
+          goalsList.innerHTML = '<span style="color:var(--muted)">Sin datos de goles</span>';
+        }
+      }
+
+      if (cardsList) {
+        if (d.bookings && d.bookings.length > 0) {
+          cardsList.innerHTML = d.bookings.map((b) => {
+            const icon = b.card === 'RED' ? '🟥' : '🟨';
+            return `<div class="match-detail__row">
+              <span class="match-detail__minute">${b.minute}'</span>
+              <span class="match-detail__icon">${icon}</span>
+              <span class="match-detail__player">${b.player}</span>
+            </div>`;
+          }).join('');
+        } else {
+          cardsList.innerHTML = '<span style="color:var(--muted)">Sin tarjetas</span>';
+        }
+      }
+
+      if (mvpEl) {
+        if (d.mvp) {
+          mvpEl.textContent = d.mvp;
+        } else {
+          const teamData = window.__VS_DATA__ || {};
+          const homeTeam = matchEl.getAttribute('data-home') || '';
+          const awayTeam = matchEl.getAttribute('data-away') || '';
+          const hScore = parseInt(matchEl.querySelector('.score--has .vs')?.textContent || '0') || 0;
+          const aScore = parseInt(matchEl.querySelector('.score--has .vs:last-child')?.textContent || '0') || 0;
+          const winner = getWinnerTeam(homeTeam, awayTeam, hScore, aScore);
+          if (winner && teamData[winner]) {
+            mvpEl.textContent = `${teamData[winner].player} (${teamData[winner].nameEs || winner})`;
+          } else {
+            mvpEl.textContent = 'Sin definir (empate)';
           }
         }
       }
@@ -692,6 +882,9 @@ window.__EVENTS_DATA__ = ${JSON.stringify(matchEvents)};`}></script>
     });
 
     // Initial poll + set interval
+    // Process SSR-injected scores first so the first paint already shows real
+    // scores (eliminates the "VS flash" before the first /api/live poll).
+    processSSRScores();
     pollLive();
     // Also do an immediate client-side check for live matches by kickoff time
     const instantLive = getClientLiveMatches();
@@ -719,8 +912,15 @@ window.__EVENTS_DATA__ = ${JSON.stringify(matchEvents)};`}></script>
       let detailEl = matchEl.querySelector('.match-detail');
 
       if (detailEl) {
-        // Toggle
+        const wasOpen = detailEl.classList.contains('is-open');
         detailEl.classList.toggle('is-open');
+        if (wasOpen) {
+          // Closed — stop auto-refreshing
+          clearDetailRefresh();
+        } else {
+          // Reopened — restart auto-refresh if still live
+          setupDetailRefresh(matchEl, matchId);
+        }
         return;
       }
 
@@ -745,60 +945,15 @@ window.__EVENTS_DATA__ = ${JSON.stringify(matchEvents)};`}></script>
         const res = await fetch(`/api/match/${matchId}`);
         if (!res.ok) throw new Error('API error');
         const d = await res.json();
-
-        // Render goals
-        if (goalsList) {
-          if (d.goals && d.goals.length > 0) {
-            goalsList.innerHTML = d.goals.map((g) => {
-              const icon = g.type === 'PENALTY' ? '🥅' : g.type === 'OWN_GOAL' ? '💀' : '⚽';
-              const scorer = g.scorer || 'Desconocido';
-              const assist = g.assist ? ` <span class="match-detail__assist">(asist. ${g.assist})</span>` : '';
-              const min = g.injuryTime ? `${g.minute}+${g.injuryTime}'` : `${g.minute}'`;
-              return `<div class="match-detail__row">
-                <span class="match-detail__minute">${min}</span>
-                <span class="match-detail__icon">${icon}</span>
-                <span class="match-detail__player">${scorer}</span>${assist}
-              </div>`;
-            }).join('');
-          } else {
-            goalsList.innerHTML = '<span style="color:var(--muted)">Sin datos de goles</span>';
-          }
+        renderDetailContent(detailEl, d, matchEl);
+        // Refresh the score on the card with the latest data
+        const home = matchEl.getAttribute('data-home');
+        const away = matchEl.getAttribute('data-away');
+        if (d.homeScore !== null && d.awayScore !== null) {
+          updateMatchScore(d.id, home, away, d.homeScore, d.awayScore, d.status);
         }
-
-        // Render cards
-        if (cardsList) {
-          if (d.bookings && d.bookings.length > 0) {
-            cardsList.innerHTML = d.bookings.map((b) => {
-              const icon = b.card === 'RED' ? '🟥' : '🟨';
-              return `<div class="match-detail__row">
-                <span class="match-detail__minute">${b.minute}'</span>
-                <span class="match-detail__icon">${icon}</span>
-                <span class="match-detail__player">${b.player}</span>
-              </div>`;
-            }).join('');
-          } else {
-            cardsList.innerHTML = '<span style="color:var(--muted)">Sin tarjetas</span>';
-          }
-        }
-
-        // Render MVP
-        if (mvpEl) {
-          if (d.mvp) {
-            mvpEl.textContent = d.mvp;
-          } else {
-            let teamData = window.__VS_DATA__ || {};
-            const homeTeam = matchEl.getAttribute('data-home') || '';
-            const awayTeam = matchEl.getAttribute('data-away') || '';
-            const hScore = parseInt(matchEl.querySelector('.score--has .vs')?.textContent || '0') || 0;
-            const aScore = parseInt(matchEl.querySelector('.score--has .vs:last-child')?.textContent || '0') || 0;
-            const winner = getWinnerTeam(homeTeam, awayTeam, hScore, aScore);
-            if (winner && teamData[winner]) {
-              mvpEl.textContent = `${teamData[winner].player} (${teamData[winner].nameEs || winner})`;
-            } else {
-              mvpEl.textContent = 'Sin definir (empate)';
-            }
-          }
-        }
+        // Set up auto-refresh for live matches; no-op for finished
+        setupDetailRefresh(matchEl, matchId);
       } catch (_) {
         if (goalsList) goalsList.innerHTML = '<span style="color:var(--muted)">Error al cargar</span>';
       }

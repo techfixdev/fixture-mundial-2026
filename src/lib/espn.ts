@@ -8,7 +8,7 @@
  */
 
 const BASE = 'https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world';
-const CACHE_TTL = 120_000; // 2 min cache
+const CACHE_TTL = 20_000; // 20s cache — live goals appear within seconds
 
 interface CacheEntry<T> {
   data: T;
