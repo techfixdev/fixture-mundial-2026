@@ -1,0 +1,42 @@
+---
+import type { GroupMatch } from '../lib/fixture';
+import { ALL_TEAMS, flagUrl } from '../lib/teams';
+import MatchCard from './MatchCard.astro';
+
+interface Props {
+  letter: string;
+  matches: GroupMatch[];
+}
+
+const { letter, matches } = Astro.props;
+const teams = ALL_TEAMS.filter((t) => t.group === letter);
+---
+
+<details class="group" data-group={letter}>
+  <summary class="group__head">
+    <h2>Grupo {letter}</h2>
+    <span class="group__chev" aria-hidden="true">▾</span>
+  </summary>
+
+  <ul class="group__teams">
+    {
+      teams.map((t) => (
+        <li>
+          <img class="flag-img" src={flagUrl(t.iso2, 40)} alt={t.nameEs} loading="lazy" width="22" height="15" />
+          {t.nameEs}
+        </li>
+      ))
+    }
+  </ul>
+
+  <details class="standings">
+    <summary class="standings__head">📊 Tabla de posiciones</summary>
+    <div class="standings__body" data-standings={letter}>
+      <p class="standings__hint">Tocá para cargar…</p>
+    </div>
+  </details>
+
+  <div class="group__matches">
+    {matches.map((m) => <MatchCard match={m} />)}
+  </div>
+</details>

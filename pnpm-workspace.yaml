@@ -1,0 +1,5 @@
+# pnpm blocks dependency build scripts by default. Astro needs esbuild (and
+# sharp for image processing) to compile their native binaries, so allow them.
+allowBuilds:
+  esbuild: true
+  sharp: true

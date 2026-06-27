@@ -1,0 +1,20 @@
+# build output
+dist/
+.vercel/
+.astro/
+
+# dependencies
+node_modules/
+
+# secrets — NEVER commit your API key
+.env
+.env.local
+
+# logs
+npm-debug.log*
+
+# os / editor
+.DS_Store
+Thumbs.db
+
+.vercel

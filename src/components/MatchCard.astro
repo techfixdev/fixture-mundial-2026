@@ -1,0 +1,80 @@
+---
+import type { GroupMatch } from '../lib/fixture';
+import { toPercent } from '../lib/elo';
+import { flagUrl } from '../lib/teams';
+import { channelLogo } from '../lib/broadcasters';
+import { formatDateAR, formatTimeAR } from '../lib/format';
+
+interface Props {
+  match: GroupMatch;
+}
+
+const { match } = Astro.props;
+const { team1, team2, prediction, kickoff, ground, channels } = match;
+
+const p1 = toPercent(prediction.team1);
+const pd = toPercent(prediction.draw);
+const p2 = toPercent(prediction.team2);
+
+const when = kickoff
+  ? `${formatDateAR(kickoff)} · ${formatTimeAR(kickoff)}`
+  : match.date;
+---
+
+<article
+  class="match"
+  data-home={team1.name}
+  data-away={team2.name}
+  data-kickoff={kickoff ? kickoff.toISOString() : ''}
+>
+  <div class="teams">
+    <div class="team">
+      <img class="flag-img" src={flagUrl(team1.iso2, 80)} alt={team1.nameEs} loading="lazy" width="34" height="23" />
+      <span class="name">{team1.nameEs}</span>
+    </div>
+    <div class="score" data-score>
+      <span class="vs">vs</span>
+    </div>
+    <div class="team team--away">
+      <img class="flag-img" src={flagUrl(team2.iso2, 80)} alt={team2.nameEs} loading="lazy" width="34" height="23" />
+      <span class="name">{team2.nameEs}</span>
+    </div>
+  </div>
+
+  <div class="status" data-status hidden></div>
+
+  <div class="meta">
+    <span>{when} <small>(ARG)</small></span>
+    <span>{ground}</span>
+  </div>
+
+  <div class="channels" aria-label="Dónde ver en Argentina">
+    {
+      channels.map((c) => (
+        <span
+          class={`chan chan--${c.kind}${c.tentative ? ' chan--tentative' : ''}`}
+          style={`--c:${c.color}`}
+          title={c.tentative ? 'A confirmar' : c.kind === 'tv' ? 'TV' : 'Streaming'}
+        >
+          <img src={channelLogo(c.domain)} alt="" width="16" height="16" loading="lazy" />
+          {c.name}
+          {c.tentative && <span class="chan__q">a confirmar</span>}
+        </span>
+      ))
+    }
+  </div>
+
+  <div class="pred">
+    <div class="pred__label">Pronóstico (Elo)</div>
+    <div class="bar">
+      <span class="seg seg--1" style={`flex-grow:${prediction.team1}`}></span>
+      <span class="seg seg--d" style={`flex-grow:${prediction.draw}`}></span>
+      <span class="seg seg--2" style={`flex-grow:${prediction.team2}`}></span>
+    </div>
+    <div class="pct">
+      <span>{p1}%</span>
+      <span>Empate {pd}%</span>
+      <span>{p2}%</span>
+    </div>
+  </div>
+</article>

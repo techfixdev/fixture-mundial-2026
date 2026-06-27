@@ -1,0 +1,342 @@
+---
+import '../styles/global.css';
+import GroupBlock from '../components/GroupBlock.astro';
+import { groupStage } from '../lib/fixture';
+import { ALL_TEAMS } from '../lib/teams';
+import playersData from '../data/players.json';
+
+const groups = [...groupStage().entries()];
+
+// Lookup the VS modal reads on the client, keyed by openfootball canonical name.
+const players = playersData.players as Record<string, string>;
+const vsData = Object.fromEntries(
+  ALL_TEAMS.map((t) => [
+    t.name,
+    { nameEs: t.nameEs, iso2: t.iso2, elo: t.elo, player: players[t.name] ?? '—' },
+  ]),
+);
+---
+
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Mundial 2026 · Fixture en vivo</title>
+    <meta
+      name="description"
+      content="Fixture de la fase de grupos del Mundial 2026 con resultados casi en vivo y predicción de probabilidades por Elo."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Antonio:wght@400;600;700&family=Noto+Sans:wght@400;600;700&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <header class="site">
+      <h1>Mundial <span class="year">2026</span></h1>
+      <p>Fixture de la fase de grupos · resultados casi en vivo · pronóstico Elo</p>
+      <span class="live-flag" data-live-flag data-active="false">
+        <span class="dot"></span>
+        <span data-live-label>Sin partidos en juego</span>
+      </span>
+    </header>
+
+    <main class="groups">
+      {groups.map(([letter, matches]) => <GroupBlock letter={letter} matches={matches} />)}
+    </main>
+
+    <footer class="site-footer">
+      <p>
+        Calendario y planteles: <a href="https://github.com/openfootball/worldcup.json" rel="noopener">openfootball</a>
+        · Resultados: <a href="https://www.football-data.org" rel="noopener">football-data.org</a>
+        (free tier, scores con delay) · Probabilidades estimadas con ratings tipo
+        <a href="https://eloratings.net" rel="noopener">World Football Elo</a>.
+      </p>
+      <p>Horarios en zona horaria de Argentina (UTC-3). Las predicciones son orientativas, no garantías.</p>
+    </footer>
+
+    <div class="vs-modal" data-vs-modal hidden>
+      <div class="vs-overlay" data-vs-close></div>
+      <div class="vs-stage">
+        <button class="vs-x" data-vs-close aria-label="Cerrar">✕</button>
+        <div class="vs-side vs-side--left">
+          <img class="vs-flag" data-vs="flag-left" alt="" width="120" height="80" />
+          <h3 class="vs-country" data-vs="country-left"></h3>
+          <p class="vs-player"><small>Figura</small><span data-vs="player-left"></span></p>
+          <div class="vs-prob"><span data-vs="prob-left"></span><small>prob. victoria</small></div>
+        </div>
+        <div class="vs-badge">VS</div>
+        <div class="vs-side vs-side--right">
+          <img class="vs-flag" data-vs="flag-right" alt="" width="120" height="80" />
+          <h3 class="vs-country" data-vs="country-right"></h3>
+          <p class="vs-player"><small>Figura</small><span data-vs="player-right"></span></p>
+          <div class="vs-prob"><span data-vs="prob-right"></span><small>prob. victoria</small></div>
+        </div>
+      </div>
+    </div>
+
+    <script id="vs-data" type="application/json" is:inline set:html={JSON.stringify(vsData)}></script>
+
+    <script>
+      // football-data.org team name -> openfootball canonical name (data-home/away).
+      // football-data.org team name -> openfootball canonical (data-home/away).
+      // Only genuinely different names need an entry; punctuation/accents are
+      // handled by norm() below (verified live: football-data sends
+      // "Bosnia-Herzegovina", "Czechia", "United States", "South Korea").
+      const ALIAS: Record<string, string> = {
+        'United States': 'USA',
+        'Korea Republic': 'South Korea',
+        'IR Iran': 'Iran',
+        'Türkiye': 'Turkey',
+        Czechia: 'Czech Republic',
+        'Congo DR': 'DR Congo',
+        'Cabo Verde': 'Cape Verde',
+        "Côte d'Ivoire": 'Ivory Coast',
+        'Cote d’Ivoire': 'Ivory Coast',
+      };
+
+      // Compare letters/digits only, so "Bosnia-Herzegovina" === "Bosnia & Herzegovina"
+      // and accents/punctuation can never break a score-to-card match.
+      const norm = (s: string) =>
+        s
+          .normalize('NFD')
+          .replace(/[̀-ͯ]/g, '')
+          .toLowerCase()
+          .replace(/[^a-z0-9]/g, '');
+      const canon = (name: string) => norm(ALIAS[name] ?? name);
+
+      const ACTIVE_MS = 60_000; // poll cadence while a match is in its window
+      const IDLE_MAX_MS = 30 * 60_000; // re-check ceiling when nothing is on
+      const PRE_MS = 15 * 60_000; // start polling this long before kickoff
+      const POST_MS = 150 * 60_000; // keep polling this long after kickoff
+
+      const cards = [...document.querySelectorAll<HTMLElement>('.match')];
+
+      // Index cards by "homeCanon|awayCanon" for O(1) live lookups.
+      const byMatch = new Map<string, HTMLElement>();
+      const kickoffs: number[] = [];
+      for (const card of cards) {
+        const home = canon(card.dataset.home ?? '');
+        const away = canon(card.dataset.away ?? '');
+        byMatch.set(`${home}|${away}`, card);
+        const k = card.dataset.kickoff ? Date.parse(card.dataset.kickoff) : NaN;
+        if (!Number.isNaN(k)) kickoffs.push(k);
+      }
+
+      const liveFlag = document.querySelector<HTMLElement>('[data-live-flag]');
+      const liveLabel = document.querySelector<HTMLElement>('[data-live-label]');
+
+      function inWindow(now: number) {
+        return kickoffs.some((k) => now >= k - PRE_MS && now <= k + POST_MS);
+      }
+
+      function applyMatch(m: {
+        home: string;
+        away: string;
+        homeGoals: number | null;
+        awayGoals: number | null;
+        status: string;
+        minute: number | null;
+      }) {
+        const card = byMatch.get(`${canon(m.home)}|${canon(m.away)}`);
+        if (!card) return false;
+
+        const scoreEl = card.querySelector<HTMLElement>('[data-score]');
+        const statusEl = card.querySelector<HTMLElement>('[data-status]');
+        const playing = m.status === 'IN_PLAY' || m.status === 'PAUSED';
+        const finished = m.status === 'FINISHED';
+
+        if ((playing || finished) && scoreEl && m.homeGoals != null && m.awayGoals != null) {
+          scoreEl.textContent = `${m.homeGoals} - ${m.awayGoals}`;
+        }
+        if (statusEl) {
+          if (playing) {
+            statusEl.textContent = m.minute ? `🔴 En vivo ${m.minute}'` : '🔴 En vivo';
+            statusEl.dataset.state = 'live';
+            statusEl.hidden = false;
+          } else if (finished) {
+            statusEl.textContent = 'Final';
+            statusEl.dataset.state = 'final';
+            statusEl.hidden = false;
+          }
+        }
+        card.classList.toggle('match--live', playing);
+        if (playing || finished) card.classList.remove('match--upcoming');
+        return playing;
+      }
+
+      async function poll() {
+        try {
+          const res = await fetch('/api/live');
+          const data = await res.json();
+          let anyLive = false;
+          for (const m of data.matches ?? []) {
+            if (applyMatch(m)) anyLive = true;
+          }
+          if (liveFlag && liveLabel) {
+            liveFlag.dataset.active = String(anyLive);
+            liveLabel.textContent = anyLive ? 'Partido(s) en juego' : 'Sin partidos en juego';
+          }
+        } catch {
+          /* network hiccup — keep last state, try again next tick */
+        }
+        updateUpcoming();
+      }
+
+      // Highlight matches kicking off within ~36h that haven't started/finished.
+      const UPCOMING_MS = 36 * 60 * 60 * 1000;
+      function updateUpcoming() {
+        const now = Date.now();
+        for (const card of cards) {
+          if (card.classList.contains('match--live')) continue;
+          const k = card.dataset.kickoff ? Date.parse(card.dataset.kickoff) : NaN;
+          const soon = !Number.isNaN(k) && k > now && k - now <= UPCOMING_MS;
+          card.classList.toggle('match--upcoming', soon);
+        }
+      }
+
+      async function tick() {
+        if (document.hidden) {
+          setTimeout(tick, ACTIVE_MS);
+          return;
+        }
+        const now = Date.now();
+        if (inWindow(now)) {
+          await poll();
+          setTimeout(tick, ACTIVE_MS);
+        } else {
+          const next = kickoffs.filter((k) => k - PRE_MS > now).sort((a, b) => a - b)[0];
+          const wait = next ? Math.min(next - PRE_MS - now, IDLE_MAX_MS) : IDLE_MAX_MS;
+          setTimeout(tick, Math.max(wait, ACTIVE_MS));
+        }
+      }
+
+      // ---------- VS modal (fighting-game style) ----------
+      const VS: Record<string, { nameEs: string; iso2: string; elo: number; player: string }> =
+        JSON.parse(document.getElementById('vs-data')?.textContent ?? '{}');
+      const modal = document.querySelector<HTMLElement>('[data-vs-modal]');
+
+      function vsProb(e1: number, e2: number): [number, number] {
+        const DM = 0.28;
+        const we = 1 / (1 + Math.pow(10, -(e1 - e2) / 400));
+        const d = DM * (1 - 2 * Math.abs(we - 0.5));
+        return [Math.round((we - d / 2) * 100), Math.round((1 - we - d / 2) * 100)];
+      }
+
+      const q = (name: string) => modal?.querySelector<HTMLElement>(`[data-vs="${name}"]`);
+
+      function fillSide(
+        side: 'left' | 'right',
+        t: { nameEs: string; iso2: string; player: string },
+        prob: number,
+      ) {
+        const flag = q(`flag-${side}`) as HTMLImageElement | null;
+        if (flag) flag.src = `https://flagcdn.com/w320/${t.iso2}.png`;
+        const country = q(`country-${side}`);
+        if (country) country.textContent = t.nameEs;
+        const player = q(`player-${side}`);
+        if (player) player.textContent = t.player;
+        const probEl = q(`prob-${side}`);
+        if (probEl) probEl.textContent = `${prob}%`;
+      }
+
+      function openVs(homeName?: string, awayName?: string) {
+        if (!modal || !homeName || !awayName) return;
+        const h = VS[homeName];
+        const a = VS[awayName];
+        if (!h || !a) return;
+        const [ph, pa] = vsProb(h.elo, a.elo);
+        fillSide('left', h, ph);
+        fillSide('right', a, pa);
+        modal.hidden = false;
+        requestAnimationFrame(() => modal.classList.add('is-open'));
+      }
+
+      function closeVs() {
+        if (!modal) return;
+        modal.classList.remove('is-open');
+        setTimeout(() => {
+          modal.hidden = true;
+        }, 300);
+      }
+
+      for (const card of cards) {
+        card.addEventListener('click', () => openVs(card.dataset.home, card.dataset.away));
+      }
+      modal?.querySelectorAll('[data-vs-close]').forEach((el) =>
+        el.addEventListener('click', closeVs),
+      );
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') closeVs();
+      });
+
+      // ---------- Group accordion: auto-open today's / live groups ----------
+      function autoOpenGroups() {
+        const todayStr = new Date().toLocaleDateString('es-AR');
+        const groupEls = document.querySelectorAll<HTMLDetailsElement>('details.group');
+        let openedAny = false;
+        for (const g of groupEls) {
+          const relevant = [...g.querySelectorAll<HTMLElement>('.match')].some((c) => {
+            if (c.classList.contains('match--live')) return true;
+            const k = c.dataset.kickoff ? new Date(c.dataset.kickoff) : null;
+            return k ? k.toLocaleDateString('es-AR') === todayStr : false;
+          });
+          if (relevant) {
+            g.open = true;
+            openedAny = true;
+          }
+        }
+        if (!openedAny) groupEls.forEach((g) => (g.open = true));
+      }
+
+      // ---------- Standings: lazy-load on first open ----------
+      let standingsCache: Record<string, any[]> | null = null;
+      async function loadStandings(letter: string, body: HTMLElement) {
+        try {
+          if (!standingsCache) {
+            const res = await fetch('/api/standings');
+            const data = await res.json();
+            standingsCache = data.groups ?? {};
+          }
+          const rows = standingsCache?.[letter] ?? [];
+          if (!rows.length) {
+            body.innerHTML = '<p class="standings__hint">Sin datos todavía (el grupo aún no jugó).</p>';
+            return;
+          }
+          const head =
+            '<thead><tr><th>#</th><th>Equipo</th><th>PJ</th><th>G</th><th>E</th><th>P</th><th>DG</th><th>Pts</th></tr></thead>';
+          const trs = rows
+            .map(
+              (r) =>
+                `<tr><td>${r.pos}</td><td>${r.team}</td><td>${r.pj}</td><td>${r.w}</td><td>${r.d}</td><td>${r.l}</td><td>${r.gd}</td><td class="pts">${r.pts}</td></tr>`,
+            )
+            .join('');
+          body.innerHTML = `<table class="standings__table">${head}<tbody>${trs}</tbody></table>`;
+        } catch {
+          body.innerHTML = '<p class="standings__hint">No se pudo cargar la tabla.</p>';
+        }
+      }
+
+      document.querySelectorAll<HTMLDetailsElement>('.standings').forEach((det) => {
+        det.addEventListener('toggle', () => {
+          if (!det.open) return;
+          const body = det.querySelector<HTMLElement>('[data-standings]');
+          if (body && !body.dataset.loaded) {
+            body.dataset.loaded = '1';
+            void loadStandings(body.dataset.standings ?? '', body);
+          }
+        });
+      });
+
+      // One immediate poll to surface any in-play / finished-today matches, then loop.
+      updateUpcoming();
+      poll().finally(() => {
+        autoOpenGroups();
+        tick();
+      });
+    </script>
+  </body>
+</html>
