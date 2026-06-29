@@ -18,3 +18,7 @@ npm-debug.log*
 Thumbs.db
 
 .vercel
+
+# local tooling caches (Gentle AI / Engram) — machine-local, never commit
+.atl/
+.engram/

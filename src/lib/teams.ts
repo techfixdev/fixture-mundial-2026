@@ -112,3 +112,72 @@ export function getTeam(name: string): Team | undefined {
 }
 
 export const ALL_TEAMS: Team[] = [...BY_NAME.values()];
+
+// ---------------------------------------------------------------------------
+// Knockout bracket slot types
+// ---------------------------------------------------------------------------
+
+/** Discriminator for the kind of participant reference in a knockout slot. */
+export type SlotKind = 'winner' | 'loser' | 'group-winner' | 'runner-up' | 'third-place';
+
+/**
+ * Typed reference to a bracket slot without resolving to a concrete team.
+ * Matches patterns found in worldcup-2026.json: W73, L101, 1A, 2B, 3C/D/F/G/H.
+ */
+export interface BracketSlotRef {
+  kind: SlotKind;
+  /** Match number the winner/loser comes from (kind: winner | loser). */
+  matchNum?: number;
+  /** Source group letter (kind: group-winner | runner-up). */
+  group?: string;
+  /** Source group letters for best-third slots (kind: third-place). */
+  groups?: string[];
+}
+
+/**
+ * Parse a raw bracket slot label into a typed reference.
+ * Returns null for empty strings or unrecognised patterns.
+ *
+ * Supported patterns:
+ *   W<n>          → { kind: "winner",       matchNum: n }
+ *   L<n>          → { kind: "loser",        matchNum: n }
+ *   1<G>          → { kind: "group-winner", group: G }
+ *   2<G>          → { kind: "runner-up",    group: G }
+ *   3<G>/<G>/...  → { kind: "third-place",  groups: [G, ...] }
+ */
+export function parseSlot(label: string): BracketSlotRef | null {
+  if (!label) return null;
+
+  // Winner of match N: W73, W102
+  const winnerMatch = label.match(/^W(\d+)$/);
+  if (winnerMatch) {
+    return { kind: 'winner', matchNum: parseInt(winnerMatch[1], 10) };
+  }
+
+  // Loser of match N: L101, L102
+  const loserMatch = label.match(/^L(\d+)$/);
+  if (loserMatch) {
+    return { kind: 'loser', matchNum: parseInt(loserMatch[1], 10) };
+  }
+
+  // Group winner: 1A, 1B, ..., 1L
+  const groupWinnerMatch = label.match(/^1([A-Z])$/);
+  if (groupWinnerMatch) {
+    return { kind: 'group-winner', group: groupWinnerMatch[1] };
+  }
+
+  // Runner-up: 2A, 2B, ..., 2L
+  const runnerUpMatch = label.match(/^2([A-Z])$/);
+  if (runnerUpMatch) {
+    return { kind: 'runner-up', group: runnerUpMatch[1] };
+  }
+
+  // Best third-place: 3C/D/F/G/H — one or more slash-separated group letters after "3"
+  const thirdPlaceMatch = label.match(/^3([A-Z](?:\/[A-Z])*)$/);
+  if (thirdPlaceMatch) {
+    const groups = thirdPlaceMatch[1].split('/');
+    return { kind: 'third-place', groups };
+  }
+
+  return null;
+}
