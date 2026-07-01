@@ -65,7 +65,8 @@ export const GET: APIRoute = async () => {
       },
     });
   } catch (err: any) {
-    return new Response(JSON.stringify({ error: err.message }), {
+    console.error('[api/live]', err?.message ?? err, err?.stack ?? '');
+    return new Response(JSON.stringify({ error: err?.message ?? String(err) }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
     });
