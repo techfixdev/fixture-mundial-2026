@@ -773,8 +773,10 @@ window.__KNOCKOUT__ = ${JSON.stringify(Object.fromEntries(KO_BRACKET))};`}></scr
       return null;
     }
 
-    function updateMatchScore(matchId, home, away, hScore, aScore, status) {
-      const matchEl = findMatchEl(home, away);
+    function updateMatchScore(matchId, home, away, hScore, aScore, status, matchEl) {
+      if (!matchEl) {
+        matchEl = findMatchEl(home, away);
+      }
       if (!matchEl) return;
 
       // Store match ID for detail lookup
@@ -975,6 +977,19 @@ window.__KNOCKOUT__ = ${JSON.stringify(Object.fromEntries(KO_BRACKET))};`}></scr
       return liveMatches;
     }
 
+    function resolveByKickoff(kickoff, kickoffMap) {
+      if (!kickoff) return null;
+      // Exact ISO match
+      const el = kickoffMap.get(kickoff);
+      if (el) return el;
+      // Minute-prefix fallback handles second-level drift
+      const prefix = kickoff.slice(0, 16);
+      for (const [key, val] of kickoffMap) {
+        if (key.slice(0, 16) === prefix) return val;
+      }
+      return null;
+    }
+
     async function pollLive() {
       try {
         const res = await fetch('/api/live');
@@ -990,15 +1005,24 @@ window.__KNOCKOUT__ = ${JSON.stringify(Object.fromEntries(KO_BRACKET))};`}></scr
         updateLiveFlag(liveMatches.length, liveMatches);
         populateLivePanel(liveMatches);
 
+        // Build kickoff→element map for knockout timestamp join
+        const kickoffMap = new Map();
+        document.querySelectorAll('.match[data-kickoff]').forEach((el) => {
+          const ko = el.getAttribute('data-kickoff');
+          if (ko && ko.trim()) kickoffMap.set(ko, el);
+        });
+
         // Update finished matches (show scores)
         const finished = data.finished || [];
         for (const m of finished) {
-          updateMatchScore(m.id, m.home, m.away, m.homeScore, m.awayScore, m.status);
+          const matchEl = resolveByKickoff(m.kickoff, kickoffMap);
+          updateMatchScore(m.id, m.home, m.away, m.homeScore, m.awayScore, m.status, matchEl);
         }
 
         // Update live matches
         for (const m of liveMatches) {
-          updateMatchScore(m.id, m.home, m.away, m.homeScore, m.awayScore, m.status);
+          const matchEl = resolveByKickoff(m.kickoff, kickoffMap);
+          updateMatchScore(m.id, m.home, m.away, m.homeScore, m.awayScore, m.status, matchEl);
         }
       } catch (_) {
         // Silently ignore network errors
