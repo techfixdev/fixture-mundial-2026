@@ -177,6 +177,15 @@ const ROUND_ORDER: Record<string, number> = {
   'final': 5,
 };
 
+const ROUND_DISPLAY: Record<string, string> = {
+  'round-of-32': 'Round of 32',
+  'round-of-16': 'Round of 16',
+  'quarter-finals': 'Quarter-finals',
+  'semi-finals': 'Semi-finals',
+  'third-place': 'Third place',
+  'final': 'Final',
+};
+
 function normalizeRound(round: string): string {
   const map: Record<string, string> = {
     'Round of 32': 'round-of-32',
@@ -438,6 +447,70 @@ const KO_BRACKET = knockoutBracket(matches as any[]);
       );
     })}
   </main>
+
+  <section class="bracket">
+    {[...KO_BRACKET].map(([roundKey, roundMatches]) => (
+      <div class="bracket__round">
+        <h2 class="bracket__round-title">{ROUND_DISPLAY[roundKey]}</h2>
+        {roundMatches.map((m: any) => {
+          const homeResolved = TEAM_DATA[m.home];
+          const awayResolved = TEAM_DATA[m.away];
+          const isUnresolved = !homeResolved || !awayResolved;
+          const koStatus = getStatus(m.kickoff);
+          const argTime = toArgTime(m.kickoff);
+          const live = koStatus === 'live';
+
+          return (
+            <div
+              class={`match match--knockout${isUnresolved ? ' match--unresolved' : ''}${koStatus === 'upcoming' ? ' match--upcoming' : ''}${live ? ' match--live' : ''}`}
+              data-home={m.home}
+              data-away={m.away}
+              data-kickoff={m.kickoff}
+            >
+              <div class="teams">
+                <div class={`team team--home${!homeResolved ? ' team--unresolved' : ''}`}>
+                  {homeResolved && (
+                    <img
+                      class="flag-img"
+                      src={`https://flagcdn.com/w40/${homeResolved.iso2}.png`}
+                      alt={m.home}
+                      loading="lazy"
+                      width="34"
+                      height="23"
+                    />
+                  )}
+                  <span class="name">{homeResolved ? homeResolved.nameEs : formatSlotLabel(m.home)}</span>
+                </div>
+                <div class="score">
+                  <span class="vs">VS</span>
+                </div>
+                <div class={`team team--away${!awayResolved ? ' team--unresolved' : ''}`}>
+                  {awayResolved && (
+                    <img
+                      class="flag-img"
+                      src={`https://flagcdn.com/w40/${awayResolved.iso2}.png`}
+                      alt={m.away}
+                      loading="lazy"
+                      width="34"
+                      height="23"
+                    />
+                  )}
+                  <span class="name">{awayResolved ? awayResolved.nameEs : formatSlotLabel(m.away)}</span>
+                </div>
+              </div>
+              <div class="meta">
+                <span>{fmtDateShort(argTime)}</span>
+                <span class={`status${live ? ' live' : koStatus === 'final' ? ' final' : ''}`} data-state={koStatus}>
+                  {live && <span class="live-dot"></span>}
+                  {STATUS_LABELS[koStatus]}
+                </span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    ))}
+  </section>
 
   <div class="vs-modal" data-vs-modal hidden>
     <div class="vs-overlay"></div>
