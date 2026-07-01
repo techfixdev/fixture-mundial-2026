@@ -459,6 +459,9 @@ const KO_BRACKET = knockoutBracket(matches as any[]);
           const koStatus = getStatus(m.kickoff);
           const argTime = toArgTime(m.kickoff);
           const live = koStatus === 'live';
+          const koScoreData = SSR_SCORES[`${m.home}|${m.away}`];
+          const koHasScore = !!(koScoreData && koScoreData.homeScore !== null && koScoreData.awayScore !== null);
+          const koIsFinished = koScoreData?.status === 'FINISHED' || koStatus === 'final';
 
           return (
             <div
@@ -466,6 +469,8 @@ const KO_BRACKET = knockoutBracket(matches as any[]);
               data-home={m.home}
               data-away={m.away}
               data-kickoff={m.kickoff}
+              data-match-id={koScoreData?.id ? String(koScoreData.id) : undefined}
+              data-ssr-status={koScoreData?.status ?? undefined}
             >
               <div class="teams">
                 <div class={`team team--home${!homeResolved ? ' team--unresolved' : ''}`}>
@@ -479,8 +484,17 @@ const KO_BRACKET = knockoutBracket(matches as any[]);
                   />
                   <span class="name">{homeResolved ? homeResolved.nameEs : formatSlotLabel(m.home)}</span>
                 </div>
-                <div class="score">
-                  <span class="vs">VS</span>
+                <div class={`score${koHasScore ? ' score--has' : ''}${koIsFinished ? ' score--clickable' : ''}`}>
+                  {koHasScore ? (
+                    <>
+                      <span class="vs">{koScoreData.homeScore}</span>
+                      <span class="vs-div">-</span>
+                      <span class="vs">{koScoreData.awayScore}</span>
+                      {live && <span class="live-dot score__live-dot"></span>}
+                    </>
+                  ) : (
+                    <span class="vs">VS</span>
+                  )}
                 </div>
                 <div class={`team team--away${!awayResolved ? ' team--unresolved' : ''}`}>
                   <img
@@ -501,6 +515,53 @@ const KO_BRACKET = knockoutBracket(matches as any[]);
                   {STATUS_LABELS[koStatus]}
                 </span>
               </div>
+              {koStatus === 'final' && (() => {
+                const evts = getEvents(m.home, m.away);
+                const hasEvents = evts && ((evts.goals && evts.goals.length > 0) || (evts.cards && evts.cards.length > 0) || evts.mvp);
+                return (
+                  <>
+                    <button class="match-events-toggle" type="button" aria-expanded={hasEvents ? 'true' : 'false'}>
+                      <span class="match-events-toggle__icon">&#9660;</span>
+                      <span class="match-events-toggle__label">Detalles del partido</span>
+                    </button>
+                    <div class={`match-events${hasEvents ? ' match-events--open' : ''}`}>
+                      {evts?.goals && evts.goals.length > 0 && (
+                        <div class="match-events__section">
+                          <h4 class="match-events__title">⚽ Goles</h4>
+                          {evts.goals.map((g: any) => (
+                            <div class="match-events__row">
+                              <span class="match-events__minute">{g.minute}'</span>
+                              <span class="match-events__icon">{g.type === 'PENALTY' ? '🥅' : g.type === 'OWN_GOAL' ? '💀' : '⚽'}</span>
+                              <span class="match-events__player">{g.player}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {evts?.cards && evts.cards.length > 0 && (
+                        <div class="match-events__section">
+                          <h4 class="match-events__title">🟨🟥 Tarjetas</h4>
+                          {evts.cards.map((c: any) => (
+                            <div class="match-events__row">
+                              <span class="match-events__minute">{c.minute}'</span>
+                              <span class="match-events__icon">{c.card === 'RED' ? '🟥' : '🟨'}</span>
+                              <span class="match-events__player">{c.player}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {evts?.mvp && (
+                        <div class="match-events__section">
+                          <h4 class="match-events__title">⭐ MVP</h4>
+                          <p class="match-events__mvp">{evts.mvp}</p>
+                        </div>
+                      )}
+                      {!hasEvents && (
+                        <p class="match-events__empty">Los detalles aparecerán aquí cuando estén disponibles.</p>
+                      )}
+                    </div>
+                  </>
+                );
+              })()}
             </div>
           );
         })}
@@ -1019,6 +1080,8 @@ window.__KNOCKOUT__ = ${JSON.stringify(Object.fromEntries(KO_BRACKET))};`}></scr
     function updateMatchEvents(matchEl, events) {
       if (!matchEl || !events) return
 
+      const isKnockout = matchEl.classList.contains('match--knockout')
+
       // Find or create the .match-events container
       let eventsEl = matchEl.querySelector('.match-events')
       if (!eventsEl) {
@@ -1071,7 +1134,29 @@ window.__KNOCKOUT__ = ${JSON.stringify(Object.fromEntries(KO_BRACKET))};`}></scr
       }
 
       eventsEl.innerHTML = html
+
+      // For knockout cards: auto-open toggle + show events section
+      if (isKnockout) {
+        eventsEl.classList.add('match-events--open')
+        const toggle = matchEl.querySelector('.match-events-toggle')
+        if (toggle) {
+          toggle.classList.add('match-events-toggle--open')
+          toggle.setAttribute('aria-expanded', 'true')
+        }
+      }
     }
+
+    // ---- Knockout match-events toggle ----
+    document.addEventListener('click', (e) => {
+      const toggle = e.target.closest('.match-events-toggle')
+      if (!toggle) return
+      const matchEl = toggle.closest('.match')
+      const eventsEl = matchEl?.querySelector('.match-events')
+      if (!eventsEl) return
+      const isOpen = eventsEl.classList.toggle('match-events--open')
+      toggle.classList.toggle('match-events-toggle--open', isOpen)
+      toggle.setAttribute('aria-expanded', String(isOpen))
+    })
 
     async function pollLive() {
       try {

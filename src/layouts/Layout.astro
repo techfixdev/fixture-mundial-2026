@@ -217,6 +217,59 @@ import '../styles/global.css';
       font-weight: 600;
       font-size: 0.82rem;
     }
+
+    /* Knockout match events toggle */
+    .match-events-toggle {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      width: 100%;
+      margin-top: 0.6rem;
+      padding: 0.45rem 0.7rem;
+      background: var(--bg);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      font-size: 0.75rem;
+      color: var(--muted);
+      cursor: pointer;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .match-events-toggle:hover {
+      color: var(--ink);
+      border-color: var(--ink);
+    }
+    .match-events-toggle__icon {
+      font-size: 0.6rem;
+      transition: transform 0.2s;
+    }
+    .match-events-toggle--open .match-events-toggle__icon {
+      transform: rotate(180deg);
+    }
+    .match-events-toggle__label {
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+    }
+
+    /* Knockout events: hidden by default, shown when toggle is open */
+    .match--knockout .match-events {
+      display: none;
+      margin-top: 0.35rem;
+      padding: 0.7rem 0.9rem;
+      background: var(--bg);
+      border-radius: var(--radius);
+      border: 1px solid var(--line);
+      font-size: 0.78rem;
+    }
+    .match--knockout .match-events--open {
+      display: block;
+    }
+    .match-events__empty {
+      margin: 0;
+      font-size: 0.72rem;
+      color: var(--muted);
+      font-style: italic;
+    }
   </style>
 </head>
 <body>
