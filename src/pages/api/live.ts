@@ -25,10 +25,8 @@ export const GET: APIRoute = async () => {
   try {
     const matches = await fetchWorldCupMatches();
 
-    // Filter to group stage only (matchday 1-3) + map
-    const mapped: LiveMatch[] = matches
-      .filter((m) => m.matchday >= 1 && m.matchday <= 3)
-      .map((m) => {
+    // Map all matches (group + knockout)
+    const mapped: LiveMatch[] = matches.map((m) => {
         const home = normalizeTeam(m.homeTeam.name);
         const away = normalizeTeam(m.awayTeam.name);
 
