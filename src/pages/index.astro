@@ -105,6 +105,129 @@ for (const m of matches as any[]) {
 }
 
 const LIVE_API_STATUSES = ['LIVE', 'IN_PLAY', 'PAUSED'];
+
+// ---- Knockout bracket: slot parsing & grouping ----
+
+type SlotKind = 'winner' | 'runner-up' | 'loser' | 'group-pos' | 'third-place';
+
+interface BracketSlotRef {
+  kind: SlotKind;
+  matchNum?: number;
+  position?: number;
+  group?: string;
+  groups?: string[];
+}
+
+function parseSlot(raw: string): BracketSlotRef | null {
+  if (!raw || typeof raw !== 'string') return null;
+  let m: RegExpMatchArray | null;
+
+  // W73 → winner of match 73
+  m = raw.match(/^W(\d+)$/);
+  if (m) return { kind: 'winner', matchNum: parseInt(m[1], 10) };
+
+  // RU73 → runner-up of match 73
+  m = raw.match(/^RU(\d+)$/);
+  if (m) return { kind: 'runner-up', matchNum: parseInt(m[1], 10) };
+
+  // L101 → loser of match 101
+  m = raw.match(/^L(\d+)$/);
+  if (m) return { kind: 'loser', matchNum: parseInt(m[1], 10) };
+
+  // 3C/D/F/G/H → third-place from multiple groups
+  m = raw.match(/^(\d)([A-L](?:\/[A-L])+)$/);
+  if (m) return { kind: 'third-place', position: parseInt(m[1], 10), groups: m[2].split('/') };
+
+  // 1A → group position
+  m = raw.match(/^(\d)([A-L])$/);
+  if (m) return { kind: 'group-pos', position: parseInt(m[1], 10), group: m[2] };
+
+  return null;
+}
+
+function formatSlotLabel(raw: string): string {
+  const slot = parseSlot(raw);
+  if (!slot) return raw;
+
+  switch (slot.kind) {
+    case 'winner':
+      return `Winner M${slot.matchNum}`;
+    case 'runner-up':
+      return `Runner-up M${slot.matchNum}`;
+    case 'loser':
+      return `Loser M${slot.matchNum}`;
+    case 'group-pos': {
+      const ordinals = ['', '1st', '2nd', '3rd'];
+      const pos = slot.position || 1;
+      return `${ordinals[pos] || pos + 'th'} Group ${slot.group}`;
+    }
+    case 'third-place':
+      return `3rd Group ${(slot.groups || []).join('/')}`;
+    default:
+      return raw;
+  }
+}
+
+const ROUND_ORDER: Record<string, number> = {
+  'round-of-32': 0,
+  'round-of-16': 1,
+  'quarter-finals': 2,
+  'semi-finals': 3,
+  'third-place': 4,
+  'final': 5,
+};
+
+function normalizeRound(round: string): string {
+  const map: Record<string, string> = {
+    'Round of 32': 'round-of-32',
+    'Round of 16': 'round-of-16',
+    'Quarter-finals': 'quarter-finals',
+    'Semi-finals': 'semi-finals',
+    'Third place': 'third-place',
+    'Final': 'final',
+  };
+  return map[round] || round.toLowerCase().replace(/\s+/g, '-');
+}
+
+function knockoutBracket(allMatches: any[]): Map<string, any[]> {
+  const knockout = allMatches
+    .filter((m) => m.round)
+    .map((m) => {
+      // Synthesize num 103 for Third place, 104 for Final when missing
+      if (m.num == null) {
+        if (m.round === 'Third place') return { ...m, num: 103 };
+        if (m.round === 'Final') return { ...m, num: 104 };
+      }
+      return m;
+    });
+
+  const grouped = new Map<string, any[]>();
+  for (const m of knockout) {
+    const key = normalizeRound(m.round);
+    if (!grouped.has(key)) grouped.set(key, []);
+    grouped.get(key)!.push(m);
+  }
+
+  // Sort each round's matches by num
+  for (const matches of grouped.values()) {
+    matches.sort((a, b) => (a.num || 999) - (b.num || 999));
+  }
+
+  // Sort rounds by ROUND_ORDER
+  const sorted = new Map(
+    [...grouped.entries()].sort((a, b) => {
+      const orderA = ROUND_ORDER[a[0]] ?? 99;
+      const orderB = ROUND_ORDER[b[0]] ?? 99;
+      return orderA - orderB;
+    })
+  );
+
+  return sorted;
+}
+
+// Pre-compute knockout bracket for SSR
+const KO_BRACKET = knockoutBracket(matches as any[]);
+
 ---
 
 <Layout>
@@ -367,7 +490,8 @@ const LIVE_API_STATUSES = ['LIVE', 'IN_PLAY', 'PAUSED'];
 
   <script set:html={`window.__VS_DATA__ = ${JSON.stringify(TEAM_DATA)};
 window.__EVENTS_DATA__ = ${JSON.stringify(matchEvents)};
-window.__SSR_SCORES__ = ${JSON.stringify(SSR_SCORES)};`}></script>
+window.__SSR_SCORES__ = ${JSON.stringify(SSR_SCORES)};
+window.__KNOCKOUT__ = ${JSON.stringify(Object.fromEntries(KO_BRACKET))};`}></script>
 
   <script>
     const vsData = (window as any).__VS_DATA__ || {};
