@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro';
 import { fetchWorldCupMatches, normalizeTeam } from '../../lib/football-data';
+import { fetchScoreboardForDates, findMatchByTeams, extractEvents } from '../../lib/espn';
 
 export const prerender = false;
 
@@ -12,6 +13,11 @@ interface LiveMatch {
   homeScore: number | null;
   awayScore: number | null;
   matchday: number;
+  events?: {
+    goals: { minute: number; injuryTime?: number; type: string; team: string; scorer: string; assist: string | null }[];
+    bookings: { minute: number; team: string; player: string; card: string }[];
+    mvp: string | null;
+  };
 }
 
 interface LiveResponse {
@@ -42,6 +48,43 @@ export const GET: APIRoute = async ({ url }) => {
           matchday: m.matchday,
         };
       });
+
+    // ---- ESPN enrichment: goals, bookings, MVP for live & finished matches ----
+    try {
+      const liveAndFinished = mapped.filter((m) =>
+        ['LIVE', 'IN_PLAY', 'PAUSED', 'FINISHED'].includes(m.status),
+      )
+
+      if (liveAndFinished.length > 0) {
+        // Collect unique date strings (YYYYMMDD) from all live/finished matches
+        const dateSet = new Set<string>()
+        for (const m of liveAndFinished) {
+          const d = new Date(m.kickoff)
+          const dateStr = d.toISOString().substring(0, 10).replace(/-/g, '')
+          dateSet.add(dateStr)
+        }
+
+        const espnByDate = await fetchScoreboardForDates([...dateSet])
+
+        for (const m of liveAndFinished) {
+          const d = new Date(m.kickoff)
+          const dateStr = d.toISOString().substring(0, 10).replace(/-/g, '')
+          const eventsForDate = espnByDate.get(dateStr)
+          if (!eventsForDate) continue
+
+          const espnMatch = findMatchByTeams(eventsForDate, m.home, m.away)
+          if (!espnMatch) continue
+
+          const { goals, bookings, mvp } = extractEvents(espnMatch, m.home, m.away)
+          if (goals.length > 0 || bookings.length > 0 || mvp) {
+            m.events = { goals, bookings, mvp }
+          }
+        }
+      }
+    } catch (err: any) {
+      console.error('[api/live] ESPN enrichment failed:', err?.message ?? err)
+      // Continue without events — don't break the endpoint
+    }
 
     const live = mapped.filter((m) =>
       ['LIVE', 'IN_PLAY', 'PAUSED'].includes(m.status)

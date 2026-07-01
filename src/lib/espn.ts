@@ -40,19 +40,19 @@ async function fetchAPI<T>(path: string, gzip = true): Promise<T> {
 
 // ---- Types ----
 
-interface ESPNTeam {
+export interface ESPNTeam {
   id: string;
   displayName: string;
   abbreviation: string;
 }
 
-interface ESPNCompetitor {
+export interface ESPNCompetitor {
   team: ESPNTeam;
   score: string;
   winner: boolean;
 }
 
-interface ESPNDetail {
+export interface ESPNDetail {
   type: { id: string; text: string };
   clock: { value: number; displayValue: string };
   team: { id: string };
@@ -65,12 +65,12 @@ interface ESPNDetail {
   athletesInvolved?: { displayName: string; position: string }[];
 }
 
-interface ESPNCompetition {
+export interface ESPNCompetition {
   competitors: ESPNCompetitor[];
   details?: ESPNDetail[];
 }
 
-interface ESPNEvent {
+export interface ESPNEvent {
   id: string;
   date: string;
   name: string;
@@ -78,6 +78,22 @@ interface ESPNEvent {
     type: { name: string; detail: string };
   };
   competitions: ESPNCompetition[];
+}
+
+export interface Goal {
+  minute: number;
+  injuryTime?: number;
+  type: string;
+  team: string;
+  scorer: string;
+  assist: string | null;
+}
+
+export interface Booking {
+  minute: number;
+  team: string;
+  player: string;
+  card: string;
 }
 
 interface ESPNScoreboard {
@@ -131,4 +147,117 @@ export function findMatchByTeams(
   }
 
   return null;
+}
+
+// ---- Private helpers ----
+
+function parseClock(displayValue: string): { minute: number; injuryTime?: number } {
+  // Formats: "21'", "90'+12'", "45'+1'"
+  const match = displayValue.match(/^(\d+)'(\+(\d+)')?$/)
+  if (!match) return { minute: 0 }
+  return {
+    minute: parseInt(match[1]),
+    injuryTime: match[3] ? parseInt(match[3]) : undefined,
+  }
+}
+
+function mapGoalType(d: ESPNDetail): string {
+  if (d.ownGoal) return 'OWN_GOAL'
+  if (d.penaltyKick) return 'PENALTY'
+  return 'REGULAR'
+}
+
+function mapCardType(d: ESPNDetail): string | null {
+  if (d.redCard) return 'RED'
+  if (d.yellowCard) return 'YELLOW'
+  return null
+}
+
+// ---- Public API (continued) ----
+
+/**
+ * Extract goals, bookings, and MVP from an ESPN event's details.
+ * Uses the home/away team keys to resolve team names from ESPN IDs.
+ */
+export function extractEvents(
+  event: ESPNEvent,
+  homeKey: string,
+  awayKey: string,
+): { goals: Goal[]; bookings: Booking[]; mvp: string | null } {
+  const goals: Goal[] = []
+  const bookings: Booking[] = []
+  let mvp: string | null = null
+
+  const details = event.competitions?.[0]?.details
+  const competitors = event.competitions?.[0]?.competitors
+
+  if (!details || details.length === 0) return { goals, bookings, mvp }
+
+  // Build team ID map from the SAME scoreboard response (no second fetch)
+  const teamMap: Record<string, string> = {}
+  if (competitors && competitors.length >= 2) {
+    teamMap[competitors[0].team.id] = homeKey
+    teamMap[competitors[1].team.id] = awayKey
+  }
+
+  for (const d of details) {
+    const clock = parseClock(d.clock.displayValue)
+    const cardType = mapCardType(d)
+
+    // Resolve ESPN team ID to our team key immediately
+    const resolvedTeam = teamMap[d.team.id] || d.team.id
+
+    if (d.scoringPlay) {
+      goals.push({
+        minute: clock.minute,
+        injuryTime: clock.injuryTime,
+        type: mapGoalType(d),
+        team: resolvedTeam,
+        scorer: d.athletesInvolved?.[0]?.displayName ?? 'Unknown',
+        assist: d.athletesInvolved?.[1]?.displayName ?? null,
+      })
+    } else if (cardType) {
+      bookings.push({
+        minute: clock.minute,
+        team: resolvedTeam,
+        player: d.athletesInvolved?.[0]?.displayName ?? 'Unknown',
+        card: cardType,
+      })
+    }
+  }
+
+  // MVP: player with most goals from winning team
+  if (goals.length > 0) {
+    const scorerCounts: Record<string, number> = {}
+    for (const g of goals) scorerCounts[g.scorer] = (scorerCounts[g.scorer] || 0) + 1
+    let top = ''
+    let max = 0
+    for (const [name, count] of Object.entries(scorerCounts)) {
+      if (count > max) { top = name; max = count }
+    }
+    if (top) mvp = top
+  }
+
+  return { goals, bookings, mvp }
+}
+
+/**
+ * Fetch ESPN scoreboard for multiple dates in parallel.
+ * Deduplicates dates and returns a Map keyed by "YYYYMMDD".
+ */
+export async function fetchScoreboardForDates(
+  dates: string[],
+): Promise<Map<string, ESPNEvent[]>> {
+  const unique = [...new Set(dates.filter(Boolean))]
+  const results = await Promise.all(
+    unique.map(async (date) => {
+      const events = await fetchScoreboard(date)
+      return { date, events }
+    }),
+  )
+  const map = new Map<string, ESPNEvent[]>()
+  for (const { date, events } of results) {
+    map.set(date, events)
+  }
+  return map
 }

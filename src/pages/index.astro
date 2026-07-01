@@ -1016,6 +1016,63 @@ window.__KNOCKOUT__ = ${JSON.stringify(Object.fromEntries(KO_BRACKET))};`}></scr
       return null;
     }
 
+    function updateMatchEvents(matchEl, events) {
+      if (!matchEl || !events) return
+
+      // Find or create the .match-events container
+      let eventsEl = matchEl.querySelector('.match-events')
+      if (!eventsEl) {
+        eventsEl = document.createElement('div')
+        eventsEl.className = 'match-events'
+        matchEl.appendChild(eventsEl)
+      }
+
+      let html = ''
+
+      // Goals section
+      if (events.goals && events.goals.length > 0) {
+        html += '<div class="match-events__section">'
+        html += '<h4 class="match-events__title">⚽ Goles</h4>'
+        for (const g of events.goals) {
+          const icon = g.type === 'PENALTY' ? '🥅' : g.type === 'OWN_GOAL' ? '💀' : '⚽'
+          const min = g.injuryTime ? `${g.minute}+${g.injuryTime}'` : `${g.minute}'`
+          const scorer = g.scorer || 'Desconocido'
+          const assist = g.assist ? ` <span class="match-events__assist">(asist. ${g.assist})</span>` : ''
+          html += `<div class="match-events__row">`
+          html += `<span class="match-events__minute">${min}</span>`
+          html += `<span class="match-events__icon">${icon}</span>`
+          html += `<span class="match-events__player">${scorer}</span>${assist}`
+          html += `</div>`
+        }
+        html += '</div>'
+      }
+
+      // Bookings section
+      if (events.bookings && events.bookings.length > 0) {
+        html += '<div class="match-events__section">'
+        html += '<h4 class="match-events__title">🟨🟥 Tarjetas</h4>'
+        for (const b of events.bookings) {
+          const icon = b.card === 'RED' ? '🟥' : '🟨'
+          html += `<div class="match-events__row">`
+          html += `<span class="match-events__minute">${b.minute}'</span>`
+          html += `<span class="match-events__icon">${icon}</span>`
+          html += `<span class="match-events__player">${b.player || 'Desconocido'}</span>`
+          html += `</div>`
+        }
+        html += '</div>'
+      }
+
+      // MVP section
+      if (events.mvp) {
+        html += '<div class="match-events__section">'
+        html += '<h4 class="match-events__title">⭐ MVP</h4>'
+        html += `<p class="match-events__mvp">${events.mvp}</p>`
+        html += '</div>'
+      }
+
+      eventsEl.innerHTML = html
+    }
+
     async function pollLive() {
       try {
         const res = await fetch('/api/live');
@@ -1043,12 +1100,18 @@ window.__KNOCKOUT__ = ${JSON.stringify(Object.fromEntries(KO_BRACKET))};`}></scr
         for (const m of finished) {
           const matchEl = resolveByKickoff(m.kickoff, kickoffMap);
           updateMatchScore(m.id, m.home, m.away, m.homeScore, m.awayScore, m.status, matchEl);
+          if (matchEl && m.events) {
+            updateMatchEvents(matchEl, m.events)
+          }
         }
 
         // Update live matches
         for (const m of liveMatches) {
           const matchEl = resolveByKickoff(m.kickoff, kickoffMap);
           updateMatchScore(m.id, m.home, m.away, m.homeScore, m.awayScore, m.status, matchEl);
+          if (matchEl && m.events) {
+            updateMatchEvents(matchEl, m.events)
+          }
         }
       } catch (_) {
         // Silently ignore network errors
