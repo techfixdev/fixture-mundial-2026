@@ -204,7 +204,9 @@ const NAME_ALIASES: Record<string, string> = {
  * Normalize a football-data team name to our team key.
  * Falls back to letters-only lowercase matching.
  */
-export function normalizeTeam(fdName: string): string | null {
+export function normalizeTeam(fdName: string | null): string | null {
+  if (!fdName) return null;
+
   // 1. Exact alias match
   if (NAME_ALIASES[fdName]) return NAME_ALIASES[fdName];
 
