@@ -469,32 +469,28 @@ const KO_BRACKET = knockoutBracket(matches as any[]);
             >
               <div class="teams">
                 <div class={`team team--home${!homeResolved ? ' team--unresolved' : ''}`}>
-                  {homeResolved && (
-                    <img
-                      class="flag-img"
-                      src={`https://flagcdn.com/w40/${homeResolved.iso2}.png`}
-                      alt={m.home}
-                      loading="lazy"
-                      width="34"
-                      height="23"
-                    />
-                  )}
+                  <img
+                    class="flag-img"
+                    src={homeResolved ? `https://flagcdn.com/w40/${homeResolved.iso2}.png` : 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'}
+                    alt={homeResolved ? homeResolved.nameEs : m.home}
+                    loading="lazy"
+                    width="34"
+                    height="23"
+                  />
                   <span class="name">{homeResolved ? homeResolved.nameEs : formatSlotLabel(m.home)}</span>
                 </div>
                 <div class="score">
                   <span class="vs">VS</span>
                 </div>
                 <div class={`team team--away${!awayResolved ? ' team--unresolved' : ''}`}>
-                  {awayResolved && (
-                    <img
-                      class="flag-img"
-                      src={`https://flagcdn.com/w40/${awayResolved.iso2}.png`}
-                      alt={m.away}
-                      loading="lazy"
-                      width="34"
-                      height="23"
-                    />
-                  )}
+                  <img
+                    class="flag-img"
+                    src={awayResolved ? `https://flagcdn.com/w40/${awayResolved.iso2}.png` : 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'}
+                    alt={awayResolved ? awayResolved.nameEs : m.away}
+                    loading="lazy"
+                    width="34"
+                    height="23"
+                  />
                   <span class="name">{awayResolved ? awayResolved.nameEs : formatSlotLabel(m.away)}</span>
                 </div>
               </div>
@@ -782,6 +778,36 @@ window.__KNOCKOUT__ = ${JSON.stringify(Object.fromEntries(KO_BRACKET))};`}></scr
       // Store match ID for detail lookup
       matchEl.setAttribute('data-match-id', String(matchId));
       if (status) matchEl.setAttribute('data-ssr-status', status);
+
+      // Resolve team names + flags for knockout cards (slot labels → real teams)
+      const teamData = window.__VS_DATA__ || {};
+      if (matchEl.classList.contains('match--knockout')) {
+        const homeName = matchEl.querySelector('.team--home .name');
+        const awayName = matchEl.querySelector('.team--away .name');
+        const homeFlag = matchEl.querySelector('.team--home .flag-img');
+        const awayFlag = matchEl.querySelector('.team--away .flag-img');
+
+        if (homeName && teamData[home]) {
+          homeName.textContent = teamData[home].nameEs || home;
+          matchEl.querySelector('.team--home')?.classList.remove('team--unresolved');
+          if (homeFlag) {
+            homeFlag.src = `https://flagcdn.com/w40/${teamData[home].iso2}.png`;
+            homeFlag.alt = teamData[home].nameEs || home;
+          }
+        }
+        if (awayName && teamData[away]) {
+          awayName.textContent = teamData[away].nameEs || away;
+          matchEl.querySelector('.team--away')?.classList.remove('team--unresolved');
+          if (awayFlag) {
+            awayFlag.src = `https://flagcdn.com/w40/${teamData[away].iso2}.png`;
+            awayFlag.alt = teamData[away].nameEs || away;
+          }
+        }
+        // Remove unresolved state if both teams are now known
+        if (teamData[home] && teamData[away]) {
+          matchEl.classList.remove('match--unresolved');
+        }
+      }
 
       // Update score display
       const scoreEl = matchEl.querySelector('.score');
