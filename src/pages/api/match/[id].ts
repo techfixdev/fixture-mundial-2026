@@ -80,8 +80,10 @@ export const GET: APIRoute = async ({ params }) => {
     const awayKey = normalizeTeam(match.awayTeam.name) ?? match.awayTeam.name;
 
     // Build date for ESPN lookup: "20260611"
+    // ESPN scoreboard uses US Eastern Time — convert UTC kickoff to ET
     const d = new Date(match.utcDate);
-    const dateStr = d.toISOString().substring(0, 10).replace(/-/g, '');
+    const etDate = new Date(d.getTime() - 4 * 60 * 60 * 1000);
+    const dateStr = etDate.toISOString().substring(0, 10).replace(/-/g, '');
 
     let goals: Goal[] = [];
     let bookings: Booking[] = [];

@@ -57,10 +57,12 @@ export const GET: APIRoute = async ({ url }) => {
 
       if (liveAndFinished.length > 0) {
         // Collect unique date strings (YYYYMMDD) from all live/finished matches
+        // ESPN scoreboard uses US Eastern Time — convert UTC kickoff to ET
         const dateSet = new Set<string>()
         for (const m of liveAndFinished) {
           const d = new Date(m.kickoff)
-          const dateStr = d.toISOString().substring(0, 10).replace(/-/g, '')
+          const etDate = new Date(d.getTime() - 4 * 60 * 60 * 1000)
+          const dateStr = etDate.toISOString().substring(0, 10).replace(/-/g, '')
           dateSet.add(dateStr)
         }
 
@@ -68,7 +70,8 @@ export const GET: APIRoute = async ({ url }) => {
 
         for (const m of liveAndFinished) {
           const d = new Date(m.kickoff)
-          const dateStr = d.toISOString().substring(0, 10).replace(/-/g, '')
+          const etDate = new Date(d.getTime() - 4 * 60 * 60 * 1000)
+          const dateStr = etDate.toISOString().substring(0, 10).replace(/-/g, '')
           const eventsForDate = espnByDate.get(dateStr)
           if (!eventsForDate) continue
 
