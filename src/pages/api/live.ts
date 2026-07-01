@@ -21,7 +21,8 @@ interface LiveResponse {
   updatedAt: string;
 }
 
-export const GET: APIRoute = async () => {
+export const GET: APIRoute = async ({ url }) => {
+  const all = url.searchParams.get('all') === '1';
   try {
     const matches = await fetchWorldCupMatches();
 
